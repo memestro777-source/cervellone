@@ -6,7 +6,7 @@ The 16 Minigames
 
 👁️ Visual: Cube Counter, Missing Piece, Bubbles, Odd One Out
 🧩 Logic: The Gears, Hexagon Path, The Balance, Symbol Sudoku
-➗ Math: Missing Operators, The Number Plate, Clock Difference, Calculation Chain
+➗ Math: Missing Operators, The Number Plate, Clock Difference, Broken Equality
 💭 Memory: Flip & Find, Shape Order, Action Sequence, Memory Grid
 
 Features
