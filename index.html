@@ -683,6 +683,44 @@
    per stadio, 45 secondi ciascuno.
    ========================================================= */
 
+/* =========================================================================
+   MOLTIPLICATORI DEI PUNTEGGI  —  si regolano SOLO da qui.
+
+   Ogni gioco ha il suo moltiplicatore, applicato a tutti i punti che assegna.
+   Serve a far arrivare un giocatore esperto piu' o meno allo STESSO punteggio
+   in tutti e 16 i giochi, compensando il fatto che alcuni permettono venti
+   domande in 45 secondi e altri dodici.
+
+     > 1   il gioco paga di piu' a domanda  (domande lente)
+     < 1   il gioco paga di meno a domanda  (domande rapide)
+
+   Per ritarare un gioco:  moltiplicatore_nuovo = moltiplicatore_attuale x
+                           (punteggio_obiettivo / punteggio_ottenuto)
+   Esempio: obiettivo 1000, ne fai 1400 con 1.20  ->  1.20 x 1000/1400 = 0.86
+   ========================================================================= */
+const CAL = {
+  // --- Visiva ---
+  cubeCounter:     1.05,  // Cube Counter
+  jigsaw:          0.50,  // Missing Piece
+  asteroids:       1.05,  // Bubbles
+  oddOneOut:       0.50,  // Odd One Out
+  // --- Logica ---
+  gears:           0.50,  // The Gears
+  hexPath:         1.5,   // Hexagon Path
+  balance:         0.75,  // The Balance
+  symbolSudoku:    1.45,  // Symbol Sudoku
+  // --- Calcolo ---
+  missingSign:     1.00,  // Missing Operators
+  numberPlate:     1.25,  // Number Plate
+  timeLapse:       1.60,  // Clock Difference
+  equationBalance: 1.10,  // Broken Equality
+  // --- Memoria ---
+  shuffleFind:     1.00,  // Flip & Find
+  shapeOrder:      0.9,  // Shape Order
+  actionSequence:  2.9,  // Action Sequence
+  memoryGrid:      0.65,  // Memory Grid
+};
+
 const app = document.getElementById("app");
 const STAGE_SECONDS = 45;
 const rnd = n => Math.floor(Math.random()*n);
@@ -1663,7 +1701,7 @@ function askOptions(stage, questionHTML, boardNode, options, correct, api, next,
 
 /* ----- Cube Counter (WHTBB) ----- */
 const cubeCounter = {
-  cal:1.03,
+  cal:CAL.cubeCounter,
   get name(){return t("g_cube_n");}, get desc(){return t("g_cube_d");},
   start(api){
     const S = api.stage;
@@ -1742,7 +1780,7 @@ const cubeCounter = {
 
 /* ----- Jigsaw (WHTBB) ----- */
 const jigsaw = {
-  cal:0.48,
+  cal:CAL.jigsaw,
   get name(){return t("g_jigsaw_n");}, get desc(){return t("g_jigsaw_d");},
   start(api){
     const S = api.stage;
@@ -1825,7 +1863,7 @@ const jigsaw = {
 
 /* ----- Asteroids (WHTBB) ----- */
 const asteroids = {
-  cal:1.03,
+  cal:CAL.asteroids,
   get name(){return t("g_aster_n");}, get desc(){return t("g_aster_d");},
   start(api){
     const S = api.stage;
@@ -1921,7 +1959,7 @@ const asteroids = {
 /* ----- Car Path (WHTBB) ----- */
 /* ----- Gli Ingranaggi (nuovo!) ----- */
 const gears = {
-  cal:0.33,
+  cal:CAL.gears,
   get name(){ return t("g_gears_n"); }, get desc(){ return t("g_gears_d"); },
   start(api){
     const S = api.stage;
@@ -2063,7 +2101,7 @@ const gears = {
 
 const HEXDIRS = [["↗️",[1,-1]],["➡️",[1,0]],["↘️",[0,1]],["↙️",[-1,1]],["⬅️",[-1,0]],["↖️",[0,-1]]];
 const hexPath = {
-  cal:1.4,
+  cal:CAL.hexPath,
   get name(){return t("g_hex_n");}, get desc(){return t("g_hex_d");},
   start(api){
     const S = api.stage;
@@ -2150,7 +2188,7 @@ const hexPath = {
 
 /* ----- Balance (WHTBB) ----- */
 const balance = {
-  cal:0.62,
+  cal:CAL.balance,
   get name(){return t("g_bal_n");}, get desc(){return t("g_bal_d");},
   start(api){
     const S = api.stage;
@@ -2243,7 +2281,7 @@ const balance = {
 
 /* ----- Missing Sign (WHTBB) ----- */
 const missingSign = {
-  cal:0.81,
+  cal:CAL.missingSign,
   get name(){return t("g_ops_n");}, get desc(){return t("g_ops_d");},
   start(api){
     const S = api.stage;
@@ -2427,7 +2465,7 @@ const missingSign = {
 
 /* ----- Il Piatto dei Numeri (nuovo!) ----- */
 const numberPlate = {
-  cal:1.13,
+  cal:CAL.numberPlate,
   get name(){return t("g_plate_n");}, get desc(){return t("g_plate_d");},
   start(api){
     const S = api.stage;
@@ -2519,7 +2557,7 @@ const numberPlate = {
 
 /* ----- Time Lapse (Brain Age — il gioco degli orologi!) ----- */
 const timeLapse = {
-  cal:1.71,
+  cal:CAL.timeLapse,
   get name(){return t("g_clock_n");}, get desc(){return t("g_clock_d");},
   start(api){
     const S = api.stage;
@@ -2599,7 +2637,7 @@ const timeLapse = {
 /* ----- Mescola e Trova (nuovo!) ----- */
 /* ----- Gira e Trova ----- */
 const shuffleFind = {
-  cal:0.98,
+  cal:CAL.shuffleFind,
   get name(){return t("g_flip_n");}, get desc(){return t("g_flip_d");},
   start(api){
     const S = api.stage;
@@ -2671,7 +2709,7 @@ const shuffleFind = {
 
 /* ----- Shape Order (WHTBB) ----- */
 const shapeOrder = {
-  cal:0.88,
+  cal:CAL.shapeOrder,
   get name(){return t("g_shape_n");}, get desc(){return t("g_shape_d");},
   start(api){
     const S = api.stage;
@@ -2768,7 +2806,7 @@ const shapeOrder = {
 
 /* ----- Action Sequence (WHTBB, stile Simon) ----- */
 const actionSequence = {
-  cal:2.91,
+  cal:CAL.actionSequence,
   get name(){ return t("g_action_n"); }, get desc(){ return t("g_action_d"); },
   start(api){
     const S = api.stage;
@@ -2886,7 +2924,7 @@ const actionSequence = {
 
 /* ----- Reticolo di Memoria (nuovo!) ----- */
 const memoryGrid = {
-  cal:0.63,
+  cal:CAL.memoryGrid,
   get name(){return t("g_grid_n");}, get desc(){return t("g_grid_d");},
   start(api){
     const S = api.stage;
@@ -2962,7 +3000,7 @@ const memoryGrid = {
 
 /* ----- Trova l'Intruso (nuovo!) ----- */
 const oddOneOut = {
-  cal:0.45,
+  cal:CAL.oddOneOut,
   get name(){return t("g_odd_n");}, get desc(){return t("g_odd_d");},
   start(api){
     const S = api.stage;
@@ -3015,7 +3053,7 @@ const oddOneOut = {
 
 /* ----- Sudoku dei Simboli (nuovo!) ----- */
 const symbolSudoku = {
-  cal:1.52,
+  cal:CAL.symbolSudoku,
   get name(){return t("g_sudoku_n");}, get desc(){return t("g_sudoku_d");},
   start(api){
     const S = api.stage;
@@ -3117,7 +3155,7 @@ const symbolSudoku = {
 
 /* ----- Catena di Calcolo (nuovo!) ----- */
 const equationBalance = {
-  cal:0.98,
+  cal:CAL.equationBalance,
   get name(){return t("g_eq_n");}, get desc(){return t("g_eq_d");},
   start(api){
     const S = api.stage;
