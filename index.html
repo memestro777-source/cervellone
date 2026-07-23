@@ -32,7 +32,7 @@
   .hud,.timerwrap,.feedback{flex:0 0 auto;}
   /* i MENU invece possono scorrere al loro interno, se non ci stanno */
   .screen{overflow-y:auto;overflow-x:hidden;}
-  h1,h2,h3,.disp{font-family:"Baloo 2","Nunito",system-ui,sans-serif;letter-spacing:.3px;}
+  h1,h2,h3{font-family:"Baloo 2","Nunito",system-ui,sans-serif;letter-spacing:.3px;}
 
   /* ---------- header / HUD ---------- */
   .hud{display:flex;align-items:center;gap:10px;margin-bottom:10px;min-width:0;}
@@ -116,12 +116,7 @@
   .padgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:320px;margin:14px auto 0;}
   .pad{aspect-ratio:1;border-radius:18px;border:none;cursor:pointer;opacity:.55;transition:opacity .1s, transform .1s;font-size:34px;}
   .pad.lit{opacity:1;transform:scale(1.06);box-shadow:0 0 24px currentColor;}
-  .pad1{background:#ff6e87;color:#ff6e87;} .pad2{background:#3ee8b5;color:#3ee8b5;}
-  .pad3{background:#ffc94d;color:#ffc94d;} .pad4{background:#5db8ff;color:#5db8ff;}
-  .pad5{background:#ff9f43;color:#ff9f43;} .pad6{background:#b78bff;color:#b78bff;}
   .seqrow{display:flex;gap:10px;justify-content:center;font-size:44px;min-height:64px;align-items:center;}
-  .numpick{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px;}
-  .numpick .btn.sel{border-color:var(--gold);background:#4a3f8a;}
   .arrowseq{display:flex;gap:6px;justify-content:center;font-size:30px;font-weight:900;flex-wrap:wrap;
     background:var(--panel2);border-radius:12px;padding:8px 10px;margin-bottom:10px;}
   .cube-fall{animation:cubefall .4s cubic-bezier(.2,.7,.3,1.15) both;}
@@ -135,7 +130,6 @@
     background:var(--panel);border:none;border-radius:999px;padding:6px 12px;cursor:pointer;
   }
   .iconbtn:active{transform:scale(.95);}
-  .iconbtn.active{outline:2px solid var(--gold);background:var(--panel2);}
   .plate{
     position:relative;width:240px;height:240px;margin:12px auto 0;border-radius:50%;
     background:radial-gradient(circle at 42% 36%, #3d3580, #262055 70%);
@@ -148,7 +142,6 @@
     box-shadow:0 3px 8px rgba(0,0,0,.4);
     transition:transform .3s, opacity .3s;
   }
-  .shufflewrap{position:relative;height:78px;margin:14px auto 4px;}
   .shufflecard{
     position:absolute;left:0;top:0;width:58px;height:76px;border-radius:12px;border:none;cursor:pointer;
     background:#3d3580;font-size:30px;color:inherit;
@@ -197,9 +190,6 @@
   .cellbtn.bad{background:var(--coral);color:#3a0d09;}
   .cellbtn.holecell{color:var(--gold);font-weight:900;}
   .cellbtn.activecell{outline:3px solid var(--gold);}
-  .dots{display:flex;gap:9px;justify-content:center;margin:8px 0 2px;}
-  .dot{width:12px;height:12px;border-radius:50%;background:var(--panel2);transition:background .2s, transform .2s;}
-  .dot.on{background:var(--gold);transform:scale(1.15);}
 
   /* ================= RESTYLING GRAFICO ================= */
   :root{
@@ -356,7 +346,6 @@
   .hud .cat{font-size:clamp(15px,4.2vw,17px);background:#fff;border:1px solid #ded7f8;}
   .hud .score{font-size:clamp(19px,5.2vw,22px);color:#d78f00;text-shadow:none;}
   .iconbtn{font-size:15px;background:#fff;border:1px solid #ded7f8;color:var(--dim);}
-  .iconbtn.active{outline:2px solid var(--gold);background:var(--panel2);}
   .timerwrap{height:14px;background:#e4defa;border:1px solid #d5cdf4;box-shadow:inset 0 2px 5px rgba(80,70,160,.15);}
   .timerbar{background:linear-gradient(90deg,#1fd6a0,#38b2f2,#8b5cf6);box-shadow:none;}
   .timerbar.low{background:linear-gradient(90deg,#f0604c,#e8a51b);box-shadow:none;}
@@ -389,9 +378,6 @@
   .shufflecard.covered{background:linear-gradient(145deg,#8b78e8,#6a56cc);color:#fff;}
   .seqrow{font-size:clamp(38px,11vw,52px);}
   .arrowseq{font-size:clamp(24px,7.5vw,34px);background:var(--panel2);color:var(--ink);}
-  .dots{gap:11px;}
-  .dot{width:14px;height:14px;background:#ddd6f6;}
-  .dot.on{background:var(--gold);}
   .timerbar,.timerwrap{border-radius:99px;}
   /* bolle su acqua chiara */
   .asterofield{
@@ -489,7 +475,6 @@
   .chip{padding:6px 11px;}
   .braintype{font-size:min(clamp(23px,6.5vw,30px),3.6vh);margin:0;}
   .recordline{margin:0;}
-  .dots{margin:6px 0 2px;}
   /* schermi molto bassi: si compatta ancora */
   @media (max-height:620px){
     .brainmoji{font-size:9vh;}
@@ -630,7 +615,6 @@
   @media (min-width:1000px) and (min-height:740px){
     .mathboard{min-height:clamp(190px,30vh,320px);}
   }
-  .skiphint{text-align:center;font-size:clamp(12px,3.2vw,14px);color:var(--dim);font-weight:700;margin:4px 0 0;}
 
   /* Action Sequence: 9 tessere in tinte vivide e armoniche col tema;
      da accese si schiariscono con un alone luminoso */
@@ -737,37 +721,45 @@ const SFX = (()=>{
     }
     return noiseBuf;
   };
+  /* INVILUPPO ANTI-CLICK: ogni suono parte da ZERO esatto e torna a ZERO esatto
+     prima che l'oscillatore venga fermato. Senza questo, l'ampiezza viene troncata
+     a meta' onda e si sente lo schiocco (sia all'attacco che allo stop). */
+  function envelope(g, t, dur, vol){
+    const atk = Math.min(0.012, dur*0.30);          // salita: breve, ma mai piu' di 1/3 del suono
+    const rel = Math.min(0.030, dur*0.35);          // discesa finale fino a zero vero
+    const body = Math.max(t+atk+0.004, t+dur-rel);  // fine della coda esponenziale
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t+atk);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0006, vol*0.03), body);
+    g.gain.linearRampToValueAtTime(0, t+dur);       // ZERO esatto: nessun troncamento
+  }
   function tone(freq, dur, opt){
     if(muted) return; const c = ensure(); if(!c) return;
     opt = opt||{};
     try{
-      const t = c.currentTime + (opt.when||0);
+      const t = c.currentTime + 0.005 + (opt.when||0);   // margine: l'attacco non viene mai saltato
       const o = c.createOscillator(), g = c.createGain();
       o.type = opt.type||"sine";
       o.frequency.setValueAtTime(freq, t);
       if(opt.slideTo) o.frequency.exponentialRampToValueAtTime(opt.slideTo, t+dur);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.linearRampToValueAtTime(opt.vol||0.12, t+0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+      envelope(g, t, dur, opt.vol||0.12);
       o.connect(g); g.connect(c.destination);
-      o.start(t); o.stop(t+dur+0.06);
+      o.start(t); o.stop(t+dur+0.01);   // si ferma quando il volume e' gia' a zero
     }catch(e){}
   }
   function noise(dur, opt){
     if(muted) return; const c = ensure(); if(!c) return;
     opt = opt||{};
     try{
-      const t = c.currentTime + (opt.when||0);
+      const t = c.currentTime + 0.005 + (opt.when||0);   // margine: l'attacco non viene mai saltato
       const src = c.createBufferSource(); src.buffer = getNoise(c); src.loop = true;
       const f = c.createBiquadFilter(); f.type = "bandpass"; f.Q.value = opt.q||1.2;
       f.frequency.setValueAtTime(opt.from||800, t);
       f.frequency.exponentialRampToValueAtTime(Math.max(40,opt.to||300), t+dur);
       const g = c.createGain();
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.linearRampToValueAtTime(opt.vol||0.08, t+0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+      envelope(g, t, dur, opt.vol||0.08);
       src.connect(f); f.connect(g); g.connect(c.destination);
-      src.start(t); src.stop(t+dur+0.05);
+      src.start(t); src.stop(t+dur+0.01);   // si ferma quando il volume e' gia' a zero
     }catch(e){}
   }
   return {
@@ -785,9 +777,6 @@ const SFX = (()=>{
     },
     lvlup(){
       [523,659,784,1047,1319].forEach((f,i)=>tone(f,0.24,{type:"triangle",vol:Math.max(0.04,0.1-i*0.01),when:0.12+i*0.07}));
-    },
-    lvldown(){
-      [440,349,262].forEach((f,i)=>tone(f,0.22,{type:"triangle",vol:0.075,when:0.12+i*0.11}));
     },
     flip(){ noise(0.16,{vol:0.06,from:500,to:2400,q:2}); },
     pop(){
@@ -829,15 +818,10 @@ const STR = {
     title:"Cervellone!",
     intro_sub:"4 stadi, {0} secondi ciascuno.<br>Quanto \u00e8 grande il tuo cervello?",
     intro_share_msg:"\ud83e\udde0 Quanto \u00e8 grande il tuo cervello? Mettiti alla prova!",
-    share_game:"\ud83d\udd17 Condividi il gioco", share_score:"\ud83d\udce4 Condividi il punteggio", copied:"\u2705 Copiato!",
-    base_vol:"Volume di base",
-    skip_hint:"\ud83d\udc46 tocca per iniziare subito", skip_hint2:"\ud83d\udc46 tocca per rispondere subito",
-    mode_single:"\ud83c\udfae Gioco singolo", single_title:"Scegli il minigioco:",
-    single_score:"Punteggio", single_more:"\ud83c\udfae Altri giochi",
+    share_game:"\ud83d\udd17 Condividi il gioco", share_score:"\ud83d\udce4 Condividi il punteggio", copied:"\u2705 Copiato!", skip_hint2:"\ud83d\udc46 tocca per rispondere subito",
+    mode_single:"\ud83c\udfae Gioco singolo", single_title:"Scegli il minigioco:", single_more:"\ud83c\udfae Altri giochi",
     back:"\u2190 Indietro",
-    series_bonus:"\u2714 Serie completata!",
-    record:"Record", plays_lbl:"partite", new_record:"\ud83c\udfc6 Nuovo record!",
-    speed_bonus:"\u26a1 Bonus velocit\u00e0!", strength:"Il tuo punto forte", train:"Da allenare",
+    record:"Record", plays_lbl:"partite", new_record:"\ud83c\udfc6 Nuovo record!", strength:"Il tuo punto forte", train:"Da allenare",
     mode_rand:"\ud83c\udfb2 Sfida casuale", mode_choice:"\ud83c\udfaf Sfida personalizzata",
     mode_desc:"<b>Casuale</b>: sfida a sorte per ogni stadio. <b>Personalizzata</b>: decidi tu ogni sfida.",
     stage:"Stadio", drawn:"Sfida estratta:", go:"Via!",
@@ -862,8 +846,7 @@ const STR = {
     q_ops2:"Completa con gli operatori, <b>in ordine</b> (calcolo da sinistra a destra)",
     q_ops1:"Quale operatore manca?",
     q_plate:"Togli i numeri: la somma di quelli che <b>restano</b> deve fare\u2026",
-    q_clock:"Quanto tempo passa dal primo al secondo orologio?",
-    q_follow:"Segui a mente\u2026", q_total:"Quanto fa?",
+    q_clock:"Quanto tempo passa dal primo al secondo orologio?", q_total:"Quanto fa?",
     q_memwhere:"Memorizza dove sono\u2026", q_whereis:"Dov'\u00e8",
     q_seq:"Memorizza la sequenza\u2026", q_repeat:"Ora ripetila in ordine!",
     q_watch:"Osserva la sequenza\u2026 ({0})", q_yourturn:"Tocca a te! Ripeti la sequenza ({0})",
@@ -892,15 +875,10 @@ const STR = {
     title:"Big Brain!",
     intro_sub:"4 stages, {0} seconds each.<br>How big is your brain?",
     intro_share_msg:"\ud83e\udde0 How big is your brain? Test yourself!",
-    share_game:"\ud83d\udd17 Share the game", share_score:"\ud83d\udce4 Share your score", copied:"\u2705 Copied!",
-    base_vol:"Base volume",
-    skip_hint:"\ud83d\udc46 tap to start right away", skip_hint2:"\ud83d\udc46 tap to answer right away",
-    mode_single:"\ud83c\udfae Single game", single_title:"Pick a minigame:",
-    single_score:"Score", single_more:"\ud83c\udfae More games",
+    share_game:"\ud83d\udd17 Share the game", share_score:"\ud83d\udce4 Share your score", copied:"\u2705 Copied!", skip_hint2:"\ud83d\udc46 tap to answer right away",
+    mode_single:"\ud83c\udfae Single game", single_title:"Pick a minigame:", single_more:"\ud83c\udfae More games",
     back:"\u2190 Back",
-    series_bonus:"\u2714 Series complete!",
-    record:"Best", plays_lbl:"games played", new_record:"\ud83c\udfc6 New record!",
-    speed_bonus:"\u26a1 Speed bonus!", strength:"Your strength", train:"Needs training",
+    record:"Best", plays_lbl:"games played", new_record:"\ud83c\udfc6 New record!", strength:"Your strength", train:"Needs training",
     mode_rand:"\ud83c\udfb2 Random challenge", mode_choice:"\ud83c\udfaf Custom challenge",
     mode_desc:"<b>Random</b>: a surprise challenge each stage. <b>Custom</b>: you choose every challenge.",
     stage:"Stage", drawn:"Your challenge:", go:"Go!",
@@ -925,8 +903,7 @@ const STR = {
     q_ops2:"Fill in the operators, <b>in order</b> (calculated left to right)",
     q_ops1:"Which operator is missing?",
     q_plate:"Remove numbers: the ones that <b>remain</b> must add up to\u2026",
-    q_clock:"How much time passes from the first clock to the second?",
-    q_follow:"Follow along in your head\u2026", q_total:"What's the total?",
+    q_clock:"How much time passes from the first clock to the second?", q_total:"What's the total?",
     q_memwhere:"Memorize where they are\u2026", q_whereis:"Where is",
     q_seq:"Memorize the sequence\u2026", q_repeat:"Now repeat it in order!",
     q_watch:"Watch the sequence\u2026 ({0})", q_yourturn:"Your turn! Repeat the sequence ({0})",
@@ -1456,12 +1433,6 @@ function runStage(cat, game){
       // cosi' un gioco a piu' risposte rende quanto uno a colpo singolo
       const H = lvlOf(pos)*10/2 * (1 + 0.2*Math.min(state.streak,5)) * CAL;
       return Array.from({length:k},(_,i)=>Math.round(H*(i+1)/k)-Math.round(H*i/k));
-    },
-    bonus(pts, label){                                // punti extra senza toccare la serie
-      stageScore += pts;
-      scoreEl.textContent = stageScore;
-      fb.className="feedback ok"; fb.textContent = "+"+pts+"  "+label;
-      SFX.lvlup();
     },
     stage: stageEl
   };
