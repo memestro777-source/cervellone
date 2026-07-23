@@ -66,7 +66,7 @@
     color:#c22014!important;}
   .sudokuboard .cellbtn.fix{background:#fff3f2!important;border-color:var(--coral)!important;color:#c22014;}
   .pad.fixlit{background:var(--coral)!important;border-color:var(--coral)!important;}
-  .seqrow.fixreveal{box-shadow:inset 0 0 0 3px var(--coral);border-radius:14px;padding:4px 10px;}
+  .seqrow.fixreveal{box-shadow:inset 0 0 0 3px var(--coral);border-radius:14px;}   /* niente imbottitura: cambierebbe l'ingombro */
   .shufflecard.flash-fix{box-shadow:inset 0 0 0 4px var(--coral)!important;background:#fff3f2!important;}
   .platechip.flash-fix{box-shadow:inset 0 0 0 3px var(--coral)!important;background:#fff3f2!important;color:#c22014!important;}
   .optgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;}
@@ -78,7 +78,11 @@
      invece di allargare la fascia: cosi' la griglia sotto non cambia mai taglia. */
   .gamestage .question{height:var(--qzone);min-height:var(--qzone);max-height:var(--qzone);
     display:flex;align-items:center;justify-content:center;overflow:hidden;
-    line-height:1.25;}
+    line-height:1.25;text-align:center;}
+  /* Il testo sta dentro UN SOLO blocco: senza questo, grassetti e suggerimenti
+     diventerebbero elementi separati che si spartiscono la riga, e la frase
+     apparirebbe sparpagliata invece che centrata. */
+  .gamestage .question > .qtext{display:block;width:100%;text-align:center;}
   .gamestage{flex:1;display:flex;flex-direction:column;}
   .feedback{height:26px;text-align:right;font-weight:900;font-size:17px;margin:-6px 2px 2px;}
   .feedback.ok{color:var(--mint);} .feedback.no{color:var(--coral);}
@@ -116,7 +120,12 @@
   .padgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:320px;margin:14px auto 0;}
   .pad{aspect-ratio:1;border-radius:18px;border:none;cursor:pointer;opacity:.55;transition:opacity .1s, transform .1s;font-size:34px;}
   .pad.lit{opacity:1;transform:scale(1.06);box-shadow:0 0 24px currentColor;}
-  .seqrow{display:flex;gap:10px;justify-content:center;font-size:44px;min-height:64px;align-items:center;}
+  .seqrow{display:flex;gap:0.2em;justify-content:center;font-size:44px;min-height:64px;align-items:center;}
+  /* BILANCE: le misure arrivano dall'auto-adattamento, in PIXEL calcolati sullo
+     spazio realmente disponibile. Niente percentuali: cosi' il tabellone non puo'
+     sbordare su nessun browser, comunque siano disposte (2, 3, 2+2, 3+2, 3+3). */
+  .scalewrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+  .scalerow{display:flex;justify-content:center;align-items:center;gap:6px;}
   .arrowseq{display:flex;gap:6px;justify-content:center;font-size:30px;font-weight:900;flex-wrap:wrap;
     background:var(--panel2);border-radius:12px;padding:8px 10px;margin-bottom:10px;}
   .cube-fall{animation:cubefall .4s cubic-bezier(.2,.7,.3,1.15) both;}
@@ -702,7 +711,7 @@ const CAL = {
   // --- Visiva ---
   cubeCounter:     1.05,  // Cube Counter
   jigsaw:          0.50,  // Missing Piece
-  asteroids:       1.05,  // Bubbles
+  asteroids:       1.00,  // Bubbles
   oddOneOut:       0.50,  // Odd One Out
   // --- Logica ---
   gears:           0.50,  // The Gears
@@ -717,7 +726,7 @@ const CAL = {
   // --- Memoria ---
   shuffleFind:     1.00,  // Flip & Find
   shapeOrder:      0.9,  // Shape Order
-  actionSequence:  2.9,  // Action Sequence
+  actionSequence:  1.25,  // Action Sequence
   memoryGrid:      0.65,  // Memory Grid
 };
 
@@ -1303,7 +1312,7 @@ function runStage(cat, game){
   /* AUTO-FIT: a ogni cambio di contenuto dell'area di gioco misuriamo lo spazio
      REALMENTE disponibile (altezza area − domanda − pulsanti) e ridimensioniamo
      la "tavola" (SVG, griglie, campo bolle, piatto, lavagna) perché ci stia. */
-  const BOARD_SEL = "svg, .asterofield, .cellgrid, .padgrid, .plate, .mathboard";
+  const BOARD_SEL = "svg, .asterofield, .cellgrid, .padgrid, .plate, .mathboard, .scalewrap";
   /* RIQUADRO DI GIOCO BLOCCATO: la zona-domanda e la zona-risposte vengono
      misurate e CONGELATE al primo round dello stadio; da li' in poi la tavola
      ha SEMPRE la stessa identica scatola, qualunque cosa cambi nel contenuto
@@ -1314,9 +1323,29 @@ function runStage(cat, game){
      congelata: dentro lo stesso livello nessun round puo' piu' cambiare di un pixel
      la griglia, le stelle o la tavola, qualunque cosa succeda nel frattempo. */
   let fitLevel = -1, fitW = 0, fitH = 0, measuring = true;
+  function fitSeqRow(){            // la sequenza deve stare su UNA riga sola
+    const row = stageEl.querySelector(".seqrow");
+    if(!row || !row.clientWidth) return;
+    row.style.fontSize = "";
+    let fs = parseFloat(getComputedStyle(row).fontSize) || 40;
+    let guard = 0;
+    while((row.scrollWidth > row.clientWidth+1 || row.scrollHeight > row.clientHeight+1)
+          && fs > 15 && guard++ < 30){
+      fs -= 1.5;
+      row.style.fontSize = fs+"px";
+    }
+  }
   function fitQuestion(){          // rimpicciolisce il testo finche' entra nelle 2 righe
     const q = stageEl.querySelector(".question");
     if(!q) return;
+    // il contenuto viene raccolto in un unico blocco, cosi' resta sempre centrato
+    if(!(q.children.length===1 && q.firstElementChild.classList.contains("qtext"))){
+      const inner = document.createElement("span");
+      inner.className = "qtext";
+      inner.innerHTML = q.innerHTML;
+      q.textContent = "";
+      q.append(inner);
+    }
     q.style.fontSize = "";
     let fs = parseFloat(getComputedStyle(q).fontSize) || 17;
     let guard = 0;
@@ -1328,6 +1357,7 @@ function runStage(cat, game){
   function fitBoards(){
     sizeBoards();
     fitQuestion();
+    fitSeqRow();
     const H = stageEl.clientHeight, W = stageEl.clientWidth;
     if(H<120 || W<80) return;
     const board = stageEl.querySelector(BOARD_SEL);
@@ -1365,6 +1395,20 @@ function runStage(cat, game){
       const s = Math.floor(Math.min(availH, availW, 540));
       board.style.maxWidth = s+"px";
       if(board._sqfix) requestAnimationFrame(board._sqfix);
+    }else if(board.classList.contains("scalewrap")){
+      /* misure in PIXEL: si parte dalla larghezza per bilancia consentita dalla riga
+         piu' affollata, e se in altezza non ci sta si stringe finche' entra. */
+      const perRow = +board.dataset.perRow || 1;
+      const nRows  = +board.dataset.rows || 1;
+      const gapW = 6*(perRow-1), gapH = 4*(nRows-1);
+      let wEach = Math.floor((Math.min(availW,560) - gapW) / perRow);
+      let hEach = wEach/2;                         // la bilancia ha proporzioni 220x110
+      const maxH = (availH - gapH) / nRows;
+      if(hEach > maxH){ hEach = Math.floor(maxH); wEach = Math.floor(hEach*2); }
+      board.querySelectorAll("svg").forEach(sv=>{
+        sv.style.width = wEach+"px"; sv.style.height = hEach+"px";
+        sv.style.maxWidth = wEach+"px"; sv.style.maxHeight = hEach+"px";
+      });
     }else if(board.classList.contains("plate")){
       board.style.width = Math.floor(Math.min(availH, availW, 360))+"px";
     }else if(board.classList.contains("mathboard")){
@@ -1383,10 +1427,12 @@ function runStage(cat, game){
         sv.style.height = availH+"px";
         sv.style.maxHeight = availH+"px";
       }else{
-        const rows = svgs.length>=3 ? 2 : 1;
+        // piu' SVG (le bilance): l'altezza si divide per le RIGHE davvero disegnate
+        const rows = +(top.dataset && top.dataset.rows) || (svgs.length>=3 ? 2 : 1);
+        const perRow = Math.ceil(svgs.length/rows);
         svgs.forEach(sv=>{
           sv.style.maxHeight = Math.floor((availH-(rows-1)*6)/rows)+"px";
-          sv.style.maxWidth = Math.min(availW,560)+"px";
+          sv.style.maxWidth = Math.floor((availW-(perRow-1)*4)/perRow)+"px";
           sv.style.height = "auto";
         });
       }
@@ -1465,6 +1511,15 @@ function runStage(cat, game){
     },
     partial(pts){       // punti parziali sui passi: NON toccano ne' la serie ne' la scala
       pts = Math.round(pts);
+      if(pts<=0) return;
+      stageScore += pts;
+      scoreEl.textContent = stageScore;
+      fb.className="feedback ok"; fb.textContent = "+"+pts;
+    },
+    stepAward(fraction){  // punti di UN passo, a quota FISSA: piu' la sequenza e'
+      // lunga, piu' rende il round. Non tocca ne' la serie ne' la scala.
+      const mult = 1 + 0.2*Math.min(state.streak,5);
+      const pts = Math.round(lvlOf(pos)*10 * fraction * mult * CAL);
       if(pts<=0) return;
       stageScore += pts;
       scoreEl.textContent = stageScore;
@@ -2194,12 +2249,12 @@ const balance = {
     const S = api.stage;
     const ITEMS = ["🍎","🍌","🍇","🍊","🍉","🥝","🥥","🍍"];
     let roundNum = 0;
-    function scaleSVG(l, r, leftHeavy, width){
+    function scaleSVG(l, r, leftHeavy){
       // il piatto più PESANTE scende (dy positivo = sinistra giù)
       const dy = leftHeavy ? 17 : -17;
       const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
       svg.setAttribute("viewBox","0 0 220 110");
-      svg.setAttribute("width",width);
+      svg.setAttribute("preserveAspectRatio","xMidYMid meet");
       const add = (n,attrs,txt)=>{
         const e=document.createElementNS("http://www.w3.org/2000/svg",n);
         for(const k in attrs)e.setAttribute(k,attrs[k]);
@@ -2222,12 +2277,13 @@ const balance = {
     function round(){
       roundNum++;
       const L = api.level, E = Math.max(0, L-10), Li = Math.min(L, 10);
-      /* Rampa 1-10: oggetti e "leggibilita'" dei confronti
+      /* Rampa 1-10: numero di BILANCE (e quindi di oggetti) + leggibilita' dei confronti
          1: 3 ogg in ordine di catena | 2: 3 sparse | 3: 3 sparse+piatti invertiti
-         4: 4 in catena | 5: 4 sparse | 6: 4 sparse+invertiti
-         7: 5 in catena | 8: 5 sparse | 9: 5 sparse+invertiti | 10: 6 sparse+invertiti */
-      const n    = E>0 ? Math.min(6 + Math.ceil(E/2), 8) : [3,3,3,4,4,4,5,5,5,6][Li-1];  // oltre: fino a 8 oggetti
-      const mode = E>0 ? "invert" : ["chain","scatter","invert","chain","scatter","invert","chain","scatter","invert","invert"][Li-1];
+         1: 2 bilance in catena | 2: 2 sparse | 3: 3 in catena | 4: 3 sparse
+         5: 4 (2+2) in catena | 6: 4 sparse+invertite | 7: 5 (3+2) sparse | 8: 5 sparse+invertite
+         9: 6 (3+3) sparse | 10: 6 sparse+invertite -- oltre il 10: 6 sempre invertite */
+      const n    = E>0 ? 7 : [3,3,4,4,5,5,6,6,7,7][Li-1];   // oggetti: le bilance sono n-1 (2 -> 6)
+      const mode = E>0 ? "invert" : ["chain","scatter","chain","scatter","chain","invert","scatter","invert","scatter","invert"][Li-1];
       const items = shuffle(ITEMS).slice(0,n);
       const w = {};
       shuffle(Array.from({length:n},(_,i)=>i+1)).forEach((v,i)=>w[items[i]]=v);
@@ -2242,26 +2298,27 @@ const balance = {
       else if(mode==="scatter") scalesToShow = shuffle(chain).map(p=>p.slice());           // ordine mescolato
       else                      scalesToShow = shuffle(chain).map(([a,b])=> rnd(2)===0 ? [a,b] : [b,a]);
 
-      // LAYOUT A RIGHE: 2-3 una riga; 4 -> 2+2; 5 -> 3+2; 6 -> 3+3; 7 -> 4+3
+      /* LAYOUT A RIGHE: 2 e 3 su una riga; 4 -> 2+2; 5 -> 3+2; 6 -> 3+3.
+         Le bilance NON hanno piu' una larghezza in pixel: ogni riga si divide
+         lo spazio disponibile, quindi la lavagna si adatta a qualunque schermo
+         e non esce mai dai bordi. */
       const sc = scalesToShow.length;
-      const rows = sc<=3 ? [sc] : sc===4 ? [2,2] : sc===5 ? [3,2] : sc===6 ? [3,3] : [4,3];
-      const wpx  = sc===2 ? "205" : sc===4 ? "180" : sc>=6 ? "122" : "150";
+      const rows = sc<=3 ? [sc] : sc===4 ? [2,2] : sc===5 ? [3,2] : [3,3];
       const sig = items.map(f=>f+w[f]).join(",")+"|"+scalesToShow.map(p=>p.join("")).join(";");
       if(sig===lastSig && sameTry++<25) return round();       // MAI due lavagne identiche di fila
       sameTry = 0; lastSig = sig;
-      const board = el("div");
-      board.style.display="flex";board.style.flexDirection="column";
-      board.style.alignItems="center";board.style.gap="2px";
+      const board = el("div","scalewrap");
       let si = 0;
       rows.forEach(cnt=>{
-        const rowEl = el("div");
-        rowEl.style.display="flex";rowEl.style.justifyContent="center";rowEl.style.gap="2px";
+        const rowEl = el("div","scalerow");
         for(let ri=0; ri<cnt; ri++){
           const [a,b] = scalesToShow[si++];
-          rowEl.append(scaleSVG(a, b, w[a]>w[b], wpx));
+          rowEl.append(scaleSVG(a, b, w[a]>w[b]));
         }
         board.append(rowEl);
       });
+      board.dataset.rows = rows.length;
+      board.dataset.perRow = Math.max(...rows);   // l'auto-adattamento calcola le misure da qui
       const target = items.reduce((best,f)=> w[f]>w[best] ? f : best, items[0]);
       // SEMPRE 4 opzioni: il giusto + 3 sbagliate (prima i frutti in gioco, poi frutti estranei)
       const wrongs = shuffle(items.filter(f=>f!==target))
@@ -2814,18 +2871,18 @@ const actionSequence = {
     const later = (fn,ms)=>timeouts.push(setTimeout(fn,ms));
     const N = 9;                                    // reticolo FISSO 3x3, sempre uguale
     /* SIMON PURO: si parte da UN passo, e a ogni completamento se ne aggiunge uno.
-       Di norma si guarda SOLO il passo nuovo. Dopo un errore la sequenza NON cambia:
-       si rivede tutta, fino al punto a cui eri arrivato. Se sbagli DI NUOVO,
-       si torna indietro di un passo e si rivede la sequenza accorciata. */
+       Si guarda SOLO il passo nuovo. Se SBAGLI si ricomincia da capo, con una
+       sequenza NUOVA di un solo passo.
+       Qui la difficolta' non la decide il livello: la detta la sequenza stessa,
+       che si allunga finche' reggi. Il livello incide solo su quanto valgono i
+       punti; il ritmo dei lampeggi accelera man mano che la sequenza cresce. */
     let seq = [];
-    let replayFull = true;                          // il primo giro (e ogni giro dopo un errore) si guarda per intero
-    let errStreak = 0;                              // errori consecutivi: al secondo si retrocede di un passo
+    let replayFull = true;                          // il primo giro si guarda per intero
     function round(){
       timeouts.forEach(clearTimeout); timeouts = [];
-      const L = api.level, Li = Math.min(L, 10);
-      const tempo = L>10 ? "fast" : ["slow","slow","med","med","med","fast","med","fast","fast","fast"][Li-1];
-      const gap   = tempo==="slow" ? 540 : tempo==="med" ? 470 : 380;
-      const lit   = tempo==="slow" ? 330 : tempo==="med" ? 290 : 230;
+      // il ritmo dipende dalla LUNGHEZZA raggiunta, non dal livello
+      const gap = seq.length<3 ? 480 : seq.length<6 ? 410 : 340;
+      const lit = seq.length<3 ? 290 : seq.length<6 ? 250 : 205;
       const grew = !replayFull;
       if(grew){                                     // giro completato: si AGGIUNGE un passo
         let p; do{ p = rnd(N); }while(seq.length && p===seq[seq.length-1]);
@@ -2833,9 +2890,13 @@ const actionSequence = {
       }else if(seq.length===0){                     // primissimo giro: si parte da UN passo
         seq.push(rnd(N));
       }
-      if(seq.length>24){ seq=[rnd(N)]; replayFull=true; }   // vetta leggendaria: si riparte
+      if(seq.length>24){ seq=[rnd(N)]; replayFull=true; }   // vetta leggendaria: sequenza nuova
       const len = seq.length;
-      const shares = len>1 ? api.halfShares(len) : null;
+      /* PUNTEGGIO CRESCENTE: ogni passo indovinato vale una quota FISSA del valore
+         della domanda, non una fetta di una torta divisa in parti uguali. Cosi' piu'
+         la sequenza si allunga, piu' il giro rende: un giro da 8 passi paga molto
+         piu' di uno da 2, invece che uguale. */
+      const STEP_SHARE = 0.15;
       S.innerHTML = "";
       const q = el("p","question center", grew ? t("seq_grow",len) : t("q_watch",len));
       S.append(q);
@@ -2877,12 +2938,11 @@ const actionSequence = {
               b.classList.add("lit");
               SFX.pad(pi);
               setTimeout(()=>b.classList.remove("lit"),220);
-              if(len>1) api.partial(shares[idx]);   // 50% del valore, una quota per tocco
+              api.stepAward(STEP_SHARE);           // quota fissa per ogni passo indovinato
               idx++;
               if(idx===len){
                 locked = true;
-                api.correct(len>1 ? 0.5 : 1);       // l'altro 50% (o tutto, al primo passo) con la serie
-                errStreak = 0;
+                api.correct(0.5);                   // premio di completamento (con la serie)
                 replayFull = false;                 // giro dopo: si aggiunge un passo e si guarda solo quello
                 pads.forEach(x=>x.disabled=true);
                 later(round,400);
@@ -2893,10 +2953,7 @@ const actionSequence = {
               SFX.pad(pi);
               pads[seq[idx]].classList.add("fixlit");   // correzione in ROSSO
               api.wrong();
-              errStreak++;
-              // primo errore: si rivede la stessa sequenza. Secondo errore di fila:
-              // si torna INDIETRO DI UN PASSO nella progressione, e la si rivede.
-              if(errStreak>=2 && seq.length>1){ seq.pop(); errStreak = 1; }
+              seq = [];            // SBAGLIATO: si ricomincia da capo, sequenza NUOVA
               replayFull = true;
               pads.forEach(x=>x.disabled=true);
               shieldInput(S);
