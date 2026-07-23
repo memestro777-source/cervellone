@@ -1232,15 +1232,14 @@ function restartBtn(label){
 /* Su alcuni browser mobili aspect-ratio non funziona e le celle vuote collassano:
    misuriamo la larghezza reale e fissiamo l'altezza via JS. */
 function squareCells(grid){
-  const fix = ()=>{
-    const c = grid.firstElementChild;
-    if(!c) return;
-    const w = c.getBoundingClientRect().width;
-    if(w>0) [...grid.children].forEach(b=>{ b.style.height = w+"px"; });
-  };
-  grid._sqfix = fix;              // l'auto-fit lo richiama dopo un ridimensionamento
-  requestAnimationFrame(fix);
-  setTimeout(fix, 120);
+  /* Le celle sono gia' quadrate da CSS (aspect-ratio:1). Forzare l'altezza via
+     codice partendo dalla larghezza MISURATA innescava una deriva: l'altezza
+     imposta stringeva la griglia, la misura successiva dava celle un filo piu'
+     piccole, e a ogni tocco tutto si rimpiccioliva un pochino. Qui ci limitiamo
+     a togliere eventuali altezze imposte e lasciamo fare al CSS. */
+  const fix = ()=>{ [...grid.children].forEach(b=>{ if(b.style.height) b.style.height = ""; }); };
+  grid._sqfix = fix;
+  fix();
 }
 
 function topBar(withRestart){
@@ -1954,13 +1953,13 @@ const gears = {
     let lastSig = null, sameTry = 0;
     function round(){
       const L = api.level, E = Math.max(0, L-10), Li = Math.min(L, 10);
-      /* Rampa 1-10: un dente in piu' ogni due scalini (scalini pari = catena "morbida" +-1)
-         3, 3-4, 4, 4-5, 5, 5-6, 6, 6-7, 7, 7-8 -- oltre il 10: fino a 9-10 ingranaggi */
-      const n = E>0 ? Math.min(8 + Math.ceil(E/2), 9) + rnd(2)
-                    : [3,3,4,4,5,5,6,6,7,7][Li-1] + (L%2===0 ? rnd(2) : 0);
-      const small = n>=6;
-      // raggi misti per un look organico
-      const radii = Array.from({length:n},()=> (small?17:21) + rnd(small?7:9));
+      /* Rampa 1-10: 3, 3, 4, 5, 5, 6, 7, 7, 8, 9 -- oltre il 10: fino a 11.
+         La catena si sviluppa RACCOLTA (non in fila): cosi' anche con 9 ingranaggi
+         il disegno riempie l'area quadrata e i denti restano grandi e leggibili. */
+      const n = E>0 ? Math.min(9 + Math.ceil(E/2), 11)
+                    : [3,3,4,5,5,6,7,7,8,9][Li-1];
+      // raggi misti per un look organico (stessa taglia a ogni livello)
+      const radii = Array.from({length:n},()=> 20 + rnd(8));
       // camminata casuale nel piano: ogni ingranaggio tocca SOLO il precedente
       let cx=[0], cy=[0];
       let guardAll = 0;
@@ -1970,19 +1969,22 @@ const gears = {
         for(let i=1;i<n;i++){
           let placed = false;
           for(let tryi=0; tryi<40; tryi++){
-            const ang = heading + (Math.random()*2.4-1.2);        // svolte fino a ~70 gradi
+            const ang = heading + (Math.random()*3.0-1.5);        // svolte fino a ~85 gradi
             const dist = radii[i-1]+radii[i]-2;
             const x = cx[i-1]+Math.cos(ang)*dist;
             const y = cy[i-1]+Math.sin(ang)*dist;
-            // niente contatti con ingranaggi non adiacenti
-            let ok = Math.abs(y) < 78;
+            /* La catena si sviluppa PIU' IN ALTEZZA CHE IN LARGHEZZA, per assecondare
+               la forma dell'area di gioco (alta e stretta): cosi' il disegno la riempie
+               e gli ingranaggi restano grandi anche quando sono nove. */
+            const spread = 64 + 22*Math.max(0, n-3);
+            let ok = Math.abs(y) < spread*1.25 && Math.abs(x) < spread*0.78;
             for(let k=0;k<i-1 && ok;k++){
               const dd = Math.hypot(x-cx[k], y-cy[k]);
               if(dd < radii[i]+radii[k]+7) ok = false;
             }
-            if(ok){ cx.push(x); cy.push(y); heading = ang*0.55; placed = true; break; }
+            if(ok){ cx.push(x); cy.push(y); heading = ang*0.8; placed = true; break; }
           }
-          if(!placed){ if(guardAll++<12) continue outer; else { // fallback: in linea
+          if(!placed){ if(guardAll++<40) continue outer; else { // fallback: in linea
               cx.push(cx[i-1]+radii[i-1]+radii[i]-2); cy.push(cy[i-1]); } }
         }
         break;
@@ -2615,7 +2617,7 @@ const timeLapse = {
 /* ----- Mescola e Trova (nuovo!) ----- */
 /* ----- Gira e Trova ----- */
 const shuffleFind = {
-  cal:0.67,
+  cal:0.98,
   get name(){return t("g_flip_n");}, get desc(){return t("g_flip_d");},
   start(api){
     const S = api.stage;
@@ -2689,7 +2691,7 @@ const shuffleFind = {
 
 /* ----- Shape Order (WHTBB) ----- */
 const shapeOrder = {
-  cal:0.98,
+  cal:0.88,
   get name(){return t("g_shape_n");}, get desc(){return t("g_shape_d");},
   start(api){
     const S = api.stage;
@@ -2991,9 +2993,10 @@ const oddOneOut = {
       const L = api.level, E = Math.max(0, L-10), Li = Math.min(L, 10);
       /* Rampa 1-10: lato della griglia e coppie sempre piu' gemelle
          1: 3x3 facili | 2: 3x3 facili | 3: 3x3 miste | 4: 4x4 facili | 5: 4x4 miste
-         6: 4x4 miste | 7: 5x5 miste | 8: 5x5 difficili | 9: 6x6 miste | 10: 6x6 difficili */
+         6: 4x4 miste | 7: 5x5 miste | 8: 5x5 difficili | 9: 5x5 miste | 10: 5x5 difficili
+         La griglia non supera MAI il 5x5: oltre sarebbe solo piu' faticosa da spazzolare. */
       const HARD = MED.filter(p=>["\ud83d\ude42","\u25d0","b","p"].includes(p[0]));
-      const size = E>0 ? Math.min(6 + Math.floor(E/5), 7) : [3,3,3,4,4,4,5,5,6,6][Li-1];  // oltre: fino a 7x7
+      const size = E>0 ? 5 : [3,3,3,4,4,4,5,5,5,5][Li-1];   // MAI oltre il 5x5
       const pool = E>0 ? (E>=3 ? HARD : MED)
                        : [EASY, EASY, EASY.concat(MED), EASY, EASY.concat(MED),
                           EASY.concat(MED), EASY.concat(MED), MED, EASY.concat(MED), MED][Li-1];
