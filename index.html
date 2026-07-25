@@ -134,6 +134,7 @@
     55%{opacity:1;}
     to{transform:translateY(0);opacity:1;}
   }
+  .iconbtn.danger{background:var(--coral)!important;color:#fff!important;}
   .iconbtn{
     font-family:inherit;font-weight:800;font-size:13px;color:var(--dim);
     background:var(--panel);border:none;border-radius:999px;padding:6px 12px;cursor:pointer;
@@ -714,7 +715,7 @@ const CAL = {
   asteroids:       1.00,  // Bubbles
   oddOneOut:       0.50,  // Odd One Out
   // --- Logica ---
-  gears:           0.50,  // The Gears
+  gears:           0.80,  // The Gears
   hexPath:         1.5,   // Hexagon Path
   balance:         0.75,  // The Balance
   symbolSudoku:    1.45,  // Symbol Sudoku
@@ -869,6 +870,8 @@ const STR = {
     title:"Cervellone!",
     intro_sub:"4 stadi, {0} secondi ciascuno.<br>Quanto \u00e8 grande il tuo cervello?",
     intro_share_msg:"\ud83e\udde0 Quanto \u00e8 grande il tuo cervello? Mettiti alla prova!",
+    reset_rec:"\ud83d\uddd1 Azzera record", reset_sure:"\u26a0\ufe0f Sicuro?",
+    reset_rec_t:"Cancella il record e le partite giocate",
     share_game:"\ud83d\udd17 Condividi il gioco", share_score:"\ud83d\udce4 Condividi il punteggio", copied:"\u2705 Copiato!", skip_hint2:"\ud83d\udc46 tocca per rispondere subito",
     mode_single:"\ud83c\udfae Gioco singolo", single_title:"Scegli il minigioco:", single_more:"\ud83c\udfae Altri giochi",
     back:"\u2190 Indietro",
@@ -926,6 +929,8 @@ const STR = {
     title:"Big Brain!",
     intro_sub:"4 stages, {0} seconds each.<br>How big is your brain?",
     intro_share_msg:"\ud83e\udde0 How big is your brain? Test yourself!",
+    reset_rec:"\ud83d\uddd1 Reset record", reset_sure:"\u26a0\ufe0f Sure?",
+    reset_rec_t:"Clear your best score and games played",
     share_game:"\ud83d\udd17 Share the game", share_score:"\ud83d\udce4 Share your score", copied:"\u2705 Copied!", skip_hint2:"\ud83d\udc46 tap to answer right away",
     mode_single:"\ud83c\udfae Single game", single_title:"Pick a minigame:", single_more:"\ud83c\udfae More games",
     back:"\u2190 Back",
@@ -1022,19 +1027,30 @@ function shareFeedback(btn, res){
 
 /* ---------- RECORD PERSISTENTI: usa window.storage se disponibile (claude.ai),
    altrimenti resta in memoria per la sessione. Nessuna dipendenza esterna. ---------- */
+/* Magazzino dei record, a tre livelli: prima l'archivio dell'ambiente (se c'e'),
+   poi quello standard del browser (che sopravvive a chiusure e riavvii), e solo
+   come ultima spiaggia la memoria volatile. */
 const Store = {
   _m: {},
   async get(k){
     try{
-      if(window.storage){ const r = await window.storage.get(k); return r ? JSON.parse(r.value) : null; }
+      if(window.storage){ const r = await window.storage.get(k); if(r) return JSON.parse(r.value); }
+    }catch(e){}
+    try{
+      const v = window.localStorage.getItem(k);
+      if(v!=null) return JSON.parse(v);
     }catch(e){}
     return this._m[k]||null;
   },
   async set(k,v){
-    try{
-      if(window.storage){ await window.storage.set(k, JSON.stringify(v)); return; }
-    }catch(e){}
     this._m[k]=v;
+    try{ window.localStorage.setItem(k, JSON.stringify(v)); }catch(e){}
+    try{ if(window.storage) await window.storage.set(k, JSON.stringify(v)); }catch(e){}
+  },
+  async clear(k){
+    this._m[k]=null;
+    try{ window.localStorage.removeItem(k); }catch(e){}
+    try{ if(window.storage) await window.storage.delete(k); }catch(e){}
   }
 };
 let RECORDS = { bestCC:0, plays:0, catLvl:{} };
@@ -1043,6 +1059,34 @@ async function loadRecords(){
   if(r) RECORDS = Object.assign(RECORDS, r);
 }
 function saveRecords(){ Store.set("bigbrain-records", RECORDS); }
+async function resetRecords(){
+  RECORDS = { bestCC:0, plays:0, catLvl:{}, gb2:{} };   // anche i record dei singoli giochi
+  await Store.clear("bigbrain-records");
+}
+function hasAnyRecord(){
+  return RECORDS.bestCC>0 || RECORDS.plays>0 || Object.keys(RECORDS.gb2||{}).length>0;
+}
+/* Tasto "azzera record", condiviso da piu' schermate. Compare solo se c'e'
+   qualcosa da azzerare, e chiede sempre conferma prima di cancellare. */
+function resetRecBtn(after){
+  if(!hasAnyRecord()) return null;
+  const rst = el("button","iconbtn",t("reset_rec"));
+  rst.title = t("reset_rec_t");
+  let armed = false;
+  rst.onclick = async ()=>{
+    if(!armed){                             // primo tocco: chiede conferma
+      armed = true;
+      rst.textContent = t("reset_sure");
+      rst.classList.add("danger");
+      setTimeout(()=>{ if(armed && rst.isConnected){ armed=false; rst.textContent=t("reset_rec"); rst.classList.remove("danger"); } }, 3000);
+      return;
+    }
+    await resetRecords();
+    SFX.click();
+    (after||showIntro)();
+  };
+  return rst;
+}
 
 /* ---------- state ---------- */
 let state = null;
@@ -1100,6 +1144,8 @@ function showIntro(){
   const s = el("div","screen");
   const tb = topBar(false);
   tb.prepend(langBtn());
+  const rstHome = resetRecBtn(showIntro);
+  if(rstHome) tb.append(rstHome);
   tb.style.justifyContent = "space-between";
   s.append(tb);
   s.append(
@@ -1147,7 +1193,7 @@ function stageChips(){
 function showSingleChoice(last){
   clearStage();
   const s = el("div","screen");
-  s.append(topBar(true));
+  s.append(topBar(true));   // il tasto "azzera record" sta solo nel menu principale
   s.append(el("h2","title",t("single_title")));
   const box = el("div","singlebox");
   CATEGORIES.forEach(cat=>{
@@ -2021,13 +2067,31 @@ const gears = {
     let lastSig = null, sameTry = 0;
     function round(){
       const L = api.level, E = Math.max(0, L-10), Li = Math.min(L, 10);
-      /* Rampa 1-10: 3, 3, 4, 5, 5, 6, 7, 7, 8, 9 -- oltre il 10: fino a 11.
-         La catena si sviluppa RACCOLTA (non in fila): cosi' anche con 9 ingranaggi
-         il disegno riempie l'area quadrata e i denti restano grandi e leggibili. */
-      const n = E>0 ? Math.min(9 + Math.ceil(E/2), 11)
-                    : [3,3,4,5,5,6,7,7,8,9][Li-1];
+      /* Rampa 1-10: ingranaggi 3,3,4,5,5,6,7,7,8,9 (+-1 dal Lv2), e dal Lv5 entrano
+         le CINGHIE. Una cinghia collega due ingranaggi staccati e li fa girare NELLO
+         STESSO VERSO, mentre i denti invertono: la regola della parita' salta, e
+         bisogna seguire davvero il percorso invece di contare le posizioni.
+         Dal Lv8 puo' comparire la cinghia INCROCIATA, che inverte di nuovo. */
+      const nBase = E>0 ? Math.min(9 + Math.ceil(E/2), 11) : [3,3,4,5,5,6,7,7,8,9][Li-1];
+      const n = Math.max(3, nBase + (L>=2 ? rnd(3)-1 : 0));
+      const nBelts  = E>0 ? 3 : [0,0,0,0,1,1,1,2,2,2][Li-1];
+      const crossOK = L>=8;                     // la cinghia incrociata arriva al Lv8
       // raggi misti per un look organico (stessa taglia a ogni livello)
       const radii = Array.from({length:n},()=> 20 + rnd(8));
+      /* quali collegamenti sono cinghie: mai il primo (cosi' si parte sempre coi denti)
+         e mai due di fila, per tenere il disegno leggibile */
+      const link = Array.from({length:n}, ()=>"mesh");   // link[k] = come k e' collegato a k-1
+      {
+        const cand = [];
+        for(let k=2;k<n;k++) cand.push(k);
+        shuffle(cand).forEach(k=>{
+          if(nBelts<=0) return;
+          if(link.filter(x=>x!=="mesh").length>=nBelts) return;
+          if(link[k-1]!=="mesh" || link[k+1]!=="mesh") return;
+          link[k] = (crossOK && rnd(3)===0) ? "cross" : "belt";
+        });
+      }
+      const BELT_GAP = 30;                      // distanza in piu' tra i due ingranaggi
       // camminata casuale nel piano: ogni ingranaggio tocca SOLO il precedente
       let cx=[0], cy=[0];
       let guardAll = 0;
@@ -2038,7 +2102,8 @@ const gears = {
           let placed = false;
           for(let tryi=0; tryi<40; tryi++){
             const ang = heading + (Math.random()*3.0-1.5);        // svolte fino a ~85 gradi
-            const dist = radii[i-1]+radii[i]-2;
+            const dist = (link[i]==="mesh") ? radii[i-1]+radii[i]-2
+                                            : radii[i-1]+radii[i]+BELT_GAP;
             const x = cx[i-1]+Math.cos(ang)*dist;
             const y = cy[i-1]+Math.sin(ang)*dist;
             /* La catena si sviluppa PIU' IN ALTEZZA CHE IN LARGHEZZA, per assecondare
@@ -2053,7 +2118,8 @@ const gears = {
             if(ok){ cx.push(x); cy.push(y); heading = ang*0.8; placed = true; break; }
           }
           if(!placed){ if(guardAll++<40) continue outer; else { // fallback: in linea
-              cx.push(cx[i-1]+radii[i-1]+radii[i]-2); cy.push(cy[i-1]); } }
+              const d2 = (link[i]==="mesh") ? radii[i-1]+radii[i]-2 : radii[i-1]+radii[i]+BELT_GAP;
+              cx.push(cx[i-1]+d2); cy.push(cy[i-1]); } }
         }
         break;
       }
@@ -2069,12 +2135,51 @@ const gears = {
       svg.setAttribute("width","320");
 
       const startCW = rnd(2)===0;
-      // bersaglio: Lv1-2 sempre l'ultimo; dal Lv3 un ingranaggio a caso (almeno il terzo)
-      const target = L<=2 ? n-1 : 2+rnd(n-2);
-      const targetCW = (target%2===0) ? startCW : !startCW;
-      const sig = n+"|"+radii.join(",")+"|"+startCW+"|"+target;   // MAI due catene identiche di fila
+      /* Il "?" e' SEMPRE l'ULTIMO della catena: cosi' ogni cinghia che si vede sta
+         per forza sul percorso e va letta. Col bersaglio a caso, invece, una cinghia
+         piazzata dopo di lui non contava nulla e il round tornava a essere il vecchio
+         gioco della parita'. */
+      const target = n-1;
+      /* verso di ogni ingranaggio: i DENTI invertono, la CINGHIA DRITTA mantiene,
+         la CINGHIA INCROCIATA inverte. Con le cinghie non basta piu' la parita'. */
+      const dirCW = [startCW];
+      for(let k=1;k<n;k++){
+        dirCW[k] = (link[k]==="belt") ? dirCW[k-1] : !dirCW[k-1];
+      }
+      const targetCW = dirCW[target];
+      const sig = n+"|"+radii.join(",")+"|"+startCW+"|"+target+"|"+link.join("");
       if(sig===lastSig && sameTry++<25) return round();
       sameTry = 0; lastSig = sig;
+
+      /* Le cinghie si disegnano PRIMA, cosi' passano sotto agli ingranaggi.
+         Dritta = due tangenti esterne (stesso verso). Incrociata = tangenti
+         interne che si incrociano (inverte, come i denti). */
+      for(let k=1;k<n;k++){
+        if(link[k]==="mesh") continue;
+        const x1=cx[k-1], y1=cy[k-1], r1=radii[k-1]-5;
+        const x2=cx[k],   y2=cy[k],   r2=radii[k]-5;
+        const d = Math.hypot(x2-x1, y2-y1);
+        const base = Math.atan2(y2-y1, x2-x1);
+        const cross = link[k]==="cross";
+        const ang = cross ? Math.acos(Math.min(1,(r1+r2)/d)) : Math.acos(Math.min(1,Math.abs(r1-r2)/d));
+        const beltG = document.createElementNS("http://www.w3.org/2000/svg","g");
+        beltG.setAttribute("class","beltlink");
+        beltG.setAttribute("data-a", k-1); beltG.setAttribute("data-b", k);
+        beltG.setAttribute("data-cross", cross ? "1" : "0");
+        [1,-1].forEach(sgn=>{
+          const a1 = base + sgn*ang;
+          const a2 = cross ? base - sgn*(Math.PI-ang) : base + sgn*ang;
+          const p1x = x1 + r1*Math.cos(a1), p1y = y1 + r1*Math.sin(a1);
+          const p2x = x2 + r2*Math.cos(a2), p2y = y2 + r2*Math.sin(a2);
+          const ln = document.createElementNS("http://www.w3.org/2000/svg","line");
+          ln.setAttribute("x1",p1x.toFixed(1)); ln.setAttribute("y1",p1y.toFixed(1));
+          ln.setAttribute("x2",p2x.toFixed(1)); ln.setAttribute("y2",p2y.toFixed(1));
+          ln.setAttribute("stroke", cross ? "#b06bd6" : "#2f3a7a");
+          ln.setAttribute("stroke-width","7"); ln.setAttribute("stroke-linecap","round");
+          beltG.append(ln);
+        });
+        svg.append(beltG);
+      }
 
       for(let i=0;i<n;i++){
         const g = document.createElementNS("http://www.w3.org/2000/svg","g");
