@@ -728,7 +728,7 @@ const CAL = {
   // --- Memoria ---
   shuffleFind:     1.00,  // Flip & Find
   shapeOrder:      0.9,  // Shape Order
-  actionSequence:  1.35,  // Action Sequence
+  actionSequence:  0.80,  // Action Sequence
   memoryGrid:      0.85,  // Memory Grid
 };
 
@@ -1578,6 +1578,25 @@ function runStage(cat, game){
       stageScore += pts;
       scoreEl.textContent = stageScore;
       fb.className="feedback ok"; fb.textContent = "+"+pts;
+    },
+    /* Per i giochi che NON usano la scala dei livelli: il valore del round lo
+       decide il gioco stesso (in Action Sequence e' la lunghezza della sequenza).
+       Restano il moltiplicatore di serie e quello del gioco, e il 50/50. */
+    valueShares(V, k){
+      const mult = 1 + 0.2*Math.min(state.streak,5);   // la serie che avra' il completamento
+      const H = V/2 * mult * CAL;
+      return Array.from({length:k},(_,i)=>Math.round(H*(i+1)/k)-Math.round(H*i/k));
+    },
+    valueCorrect(V){
+      state.streak++;
+      const mult = 1 + 0.2*Math.min(state.streak-1,5);
+      const pts = Math.round(V/2 * mult * CAL);
+      stageScore += pts;
+      scoreEl.textContent = stageScore;
+      SFX.ok();
+      pos = pos+1;
+      fb.className="feedback ok";
+      fb.textContent = "+"+pts+(state.streak>=3?"  \ud83d\udd25 "+t("streak")+" x"+state.streak:"");
     },
     halfShares(k){      // divide meta' del valore della domanda in k quote esatte
       // la SERIE vale anche qui: si usa il moltiplicatore che avra' il completamento,
@@ -3023,11 +3042,13 @@ const actionSequence = {
       }
       if(seq.length>24){ seq=[rnd(N)]; replayFull=true; }   // vetta leggendaria: sequenza nuova
       const len = seq.length;
-      /* Punteggio 50/50 come negli altri giochi a piu' risposte: meta' del valore
-         della domanda e' distribuita sui passi indovinati (e resta acquisita anche
-         se poi si sbaglia), meta' arriva al completamento della sequenza ed e'
-         l'unica parte che muove la serie e fa avanzare il livello. */
-      const shares = api.halfShares(len);
+      /* PUNTEGGIO A SE': qui non c'e' la scala dei livelli degli altri giochi.
+         Il valore del round e' la LUNGHEZZA della sequenza (lunghezza x 10), quindi
+         cresce a ogni giro riuscito e riparte da 10 quando si sbaglia. Come sempre:
+         meta' distribuita sui passi indovinati (acquisita anche se poi sbagli),
+         meta' al completamento, che e' l'unica parte a muovere la serie. */
+      const roundValue = len*10;
+      const shares = api.valueShares(roundValue, len);
       S.innerHTML = "";
       const q = el("p","question center", grew ? t("seq_grow",len) : t("q_watch",len));
       S.append(q);
@@ -3073,7 +3094,7 @@ const actionSequence = {
               idx++;
               if(idx===len){
                 locked = true;
-                api.correct(0.5);                   // premio di completamento (con la serie)
+                api.valueCorrect(roundValue);       // premio di completamento (con la serie)
                 replayFull = false;                 // giro dopo: si aggiunge un passo e si guarda solo quello
                 pads.forEach(x=>x.disabled=true);
                 later(round,400);
