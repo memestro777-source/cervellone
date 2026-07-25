@@ -159,7 +159,8 @@
     box-shadow:0 4px 10px rgba(0,0,0,.35);
   }
   .shufflecard.covered{background:linear-gradient(145deg,#4a3f8a,#2f2868);}
-  .fliprow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:14px auto 4px;}
+  .flipwrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;margin:14px auto 4px;}
+  .fliprow{display:flex;gap:8px;justify-content:center;align-items:center;}
   .shufflecard.flip{animation:flipin .45s ease;}
   .spin-cw,.spin-ccw{transform-box:fill-box;transform-origin:center;}
   .spin-cw{animation:spincw 5s linear infinite;}
@@ -182,7 +183,7 @@
   .platechip{width:clamp(42px,21.5%,52px);aspect-ratio:1;height:auto;margin:0;transform:translate(-50%,-50%);font-size:clamp(17px,4.5vw,21px);}
   .platechip:active{transform:translate(-50%,-50%) scale(.92);}
   .platechip.gone{transform:translate(-50%,-50%) scale(0) translateY(-50px) rotate(120deg);opacity:0;pointer-events:none;}
-  .shufflecard{width:clamp(56px,16vw,72px);height:auto;aspect-ratio:58/76;font-size:clamp(28px,8vw,36px);}
+  .shufflecard{width:clamp(64px,19vw,86px);height:auto;aspect-ratio:58/76;font-size:clamp(32px,9vw,42px);}
   .seqrow{font-size:clamp(32px,10vw,44px);}
   .arrowseq{font-size:clamp(22px,7vw,30px);}
 
@@ -471,7 +472,7 @@
   .padgrid{max-width:min(370px,88vw,38vh);gap:10px;margin-top:8px;}
   .pad{font-size:min(34px,4.5vh);}
   .asterofield{height:min(380px, calc(var(--stageh,55vh) * 0.64));}
-  .shufflecard{width:min(clamp(64px,18vw,84px),10.5vh);font-size:clamp(30px,8vw,38px);}
+  .shufflecard{width:min(clamp(72px,21vw,96px),12vh);font-size:clamp(34px,9vw,44px);}
   /* altezza FISSA: le forme e i "?" hanno ingombri diversi, senza questo la riga
      cambierebbe altezza a ogni fase e sembrerebbe che il gioco scatti */
   .seqrow{font-size:min(clamp(38px,11vw,52px),6.5vh);
@@ -546,7 +547,7 @@
     .btn{font-size:19px;}
     .question{font-size:21px;}
     .bignum{font-size:min(66px,10vh);}
-    .shufflecard{width:min(92px,11.5vh);}
+    .shufflecard{width:min(108px,13.5vh);}
     .seqrow{font-size:min(58px,7.5vh);}
     .arrowseq{font-size:min(36px,4.2vh);}
     .title{font-size:min(52px,7vh);}
@@ -727,7 +728,7 @@ const CAL = {
   // --- Memoria ---
   shuffleFind:     1.00,  // Flip & Find
   shapeOrder:      0.9,  // Shape Order
-  actionSequence:  1.15,  // Action Sequence
+  actionSequence:  1.35,  // Action Sequence
   memoryGrid:      0.85,  // Memory Grid
 };
 
@@ -1358,7 +1359,7 @@ function runStage(cat, game){
   /* AUTO-FIT: a ogni cambio di contenuto dell'area di gioco misuriamo lo spazio
      REALMENTE disponibile (altezza area − domanda − pulsanti) e ridimensioniamo
      la "tavola" (SVG, griglie, campo bolle, piatto, lavagna) perché ci stia. */
-  const BOARD_SEL = "svg, .asterofield, .cellgrid, .padgrid, .plate, .mathboard, .scalewrap";
+  const BOARD_SEL = "svg, .asterofield, .cellgrid, .padgrid, .plate, .mathboard, .scalewrap, .flipwrap";
   /* RIQUADRO DI GIOCO BLOCCATO: la zona-domanda e la zona-risposte vengono
      misurate e CONGELATE al primo round dello stadio; da li' in poi la tavola
      ha SEMPRE la stessa identica scatola, qualunque cosa cambi nel contenuto
@@ -1441,6 +1442,20 @@ function runStage(cat, game){
       const s = Math.floor(Math.min(availH, availW, 540));
       board.style.maxWidth = s+"px";
       if(board._sqfix) requestAnimationFrame(board._sqfix);
+    }else if(board.classList.contains("flipwrap")){
+      /* carte in PIXEL, calcolate sullo spazio reale: la riga non esce mai dallo
+         schermo e le carte restano quanto piu' grandi possibile (rapporto 58x76) */
+      const nRows  = +board.dataset.rows || 1;
+      /* TAGLIA UNICA: si calcola sempre sulla riga piu' affollata possibile (5 carte)
+         e su due righe, non sul numero di carte del momento. Cosi' la carta e' identica
+         dal primo all'ultimo livello e non si rimpicciolisce salendo. */
+      let w = Math.floor((Math.min(availW,560) - 8*4) / 5);
+      const hMax = Math.floor((availH - 8) / 2);
+      if(w*76/58 > hMax) w = Math.floor(hMax*58/76);
+      board.querySelectorAll(".shufflecard").forEach(c=>{
+        c.style.width = w+"px"; c.style.height = Math.round(w*76/58)+"px";
+        c.style.fontSize = Math.round(w*0.52)+"px";
+      });
     }else if(board.classList.contains("scalewrap")){
       /* misure in PIXEL: si parte dalla larghezza per bilancia consentita dalla riga
          piu' affollata, e se in altezza non ci sta si stringe finche' entra. */
@@ -1549,9 +1564,11 @@ function runStage(cat, game){
       fb.className="feedback ok";
       fb.textContent = "+"+pts+(state.streak>=3?"  \ud83d\udd25 "+t("streak")+" x"+state.streak:"");
     },
-    wrong(){
+    wrong(full){
       state.streak = 0;
-      pos = Math.max(0, pos-1);                       // indietro di una casella
+      /* full = azzeramento TOTALE: si torna al livello 1. Lo usa il Simon, dove
+         l'errore fa ripartire la sequenza da capo: riparte quindi anche la scala. */
+      pos = full ? 0 : Math.max(0, pos-1);            // indietro di una casella
       SFX.no();                                       // ma i punti restano!
       fb.className="feedback no"; fb.textContent = "\u2716";
     },
@@ -2399,7 +2416,11 @@ const balance = {
          lo spazio disponibile, quindi la lavagna si adatta a qualunque schermo
          e non esce mai dai bordi. */
       const sc = scalesToShow.length;
-      const rows = sc<=3 ? [sc] : sc===4 ? [2,2] : sc===5 ? [3,2] : [3,3];
+      /* SEMPRE due bilance per riga; se sono dispari l'ultima resta sola in fondo.
+         2 -> [2] | 3 -> [2,1] | 4 -> [2,2] | 5 -> [2,2,1] | 6 -> [2,2,2]
+         Meno bilance per riga = bilance piu' larghe e leggibili. */
+      const rows = [];
+      for(let left=sc; left>0; left-=2) rows.push(Math.min(2,left));
       const sig = items.map(f=>f+w[f]).join(",")+"|"+scalesToShow.map(p=>p.join("")).join(";");
       if(sig===lastSig && sameTry++<25) return round();       // MAI due lavagne identiche di fila
       sameTry = 0; lastSig = sig;
@@ -2813,14 +2834,28 @@ const shuffleFind = {
       S.innerHTML = "";
       const q = el("p","question center",t("q_memwhere"));
       S.append(q);
-      const wrap = el("div","fliprow");
-      const cards = items.map(e=>{
-        const c = el("button","shufflecard", e);
-        c.style.position = "static";
-        c.disabled = true;
-        wrap.append(c);
-        return {elm:c, emo:e};
+      /* Disposizione: una riga sola fino a 5 carte, poi due righe il piu' possibile
+         pari (6 -> 3+3, 7 -> 4+3, 8 -> 4+4), sempre centrate.
+         Il limite di 5 per riga serve a tenere le carte SEMPRE della stessa taglia,
+         a ogni livello: cosi' non si rimpiccioliscono salendo di difficolta'. */
+      const wrap = el("div","flipwrap");
+      const rowsN = n<=5 ? [n] : [Math.ceil(n/2), Math.floor(n/2)];
+      const cards = [];
+      let ci = 0;
+      rowsN.forEach(cnt=>{
+        const row = el("div","fliprow");
+        for(let k=0;k<cnt;k++){
+          const e = items[ci++];
+          const c = el("button","shufflecard", e);
+          c.style.position = "static";
+          c.disabled = true;
+          row.append(c);
+          cards.push({elm:c, emo:e});
+        }
+        wrap.append(row);
       });
+      wrap.dataset.rows = rowsN.length;
+      wrap.dataset.perRow = Math.max(...rowsN);
       S.append(wrap);
 
       const t0 = Date.now();
@@ -3048,7 +3083,7 @@ const actionSequence = {
               b.classList.add("lit");
               SFX.pad(pi);
               pads[seq[idx]].classList.add("fixlit");   // correzione in ROSSO
-              api.wrong();
+              api.wrong(true);        // si riparte da capo: sequenza NUOVA e livello 1
               seq = [];            // SBAGLIATO: si ricomincia da capo, sequenza NUOVA
               replayFull = true;
               pads.forEach(x=>x.disabled=true);
