@@ -720,10 +720,10 @@ const CAL = {
   balance:         0.75,  // The Balance
   symbolSudoku:    1.45,  // Symbol Sudoku
   // --- Calcolo ---
-  missingSign:     1.10,  // Missing Operators
-  numberPlate:     1.45,  // Number Plate
+  missingSign:     1.25,  // Missing Operators
+  numberPlate:     1.55,  // Number Plate
   timeLapse:       1.60,  // Clock Difference
-  equationBalance: 1.20,  // Broken Equality
+  equationBalance: 1.25,  // Broken Equality
   // --- Memoria ---
   shuffleFind:     1.00,  // Flip & Find
   shapeOrder:      0.9,  // Shape Order
@@ -1053,14 +1053,14 @@ const Store = {
     try{ if(window.storage) await window.storage.delete(k); }catch(e){}
   }
 };
-let RECORDS = { bestCC:0, plays:0, catLvl:{} };
+let RECORDS = { bestCC:0, plays:0, gb2:{} };
 async function loadRecords(){
   const r = await Store.get("bigbrain-records");
   if(r) RECORDS = Object.assign(RECORDS, r);
 }
 function saveRecords(){ Store.set("bigbrain-records", RECORDS); }
 async function resetRecords(){
-  RECORDS = { bestCC:0, plays:0, catLvl:{}, gb2:{} };   // anche i record dei singoli giochi
+  RECORDS = { bestCC:0, plays:0, gb2:{} };   // anche i record dei singoli giochi
   await Store.clear("bigbrain-records");
 }
 function hasAnyRecord(){
@@ -1562,15 +1562,6 @@ function runStage(cat, game){
       scoreEl.textContent = stageScore;
       fb.className="feedback ok"; fb.textContent = "+"+pts;
     },
-    stepAward(fraction){  // punti di UN passo, a quota FISSA: piu' la sequenza e'
-      // lunga, piu' rende il round. Non tocca ne' la serie ne' la scala.
-      const mult = 1 + 0.2*Math.min(state.streak,5);
-      const pts = Math.round(lvlOf(pos)*10 * fraction * mult * CAL);
-      if(pts<=0) return;
-      stageScore += pts;
-      scoreEl.textContent = stageScore;
-      fb.className="feedback ok"; fb.textContent = "+"+pts;
-    },
     halfShares(k){      // divide meta' del valore della domanda in k quote esatte
       // la SERIE vale anche qui: si usa il moltiplicatore che avra' il completamento,
       // cosi' un gioco a piu' risposte rende quanto uno a colpo singolo
@@ -1694,7 +1685,7 @@ function showFinal(){
   // il contatore sale attraversando tutti i tipi di cervello fino al tuo
   {
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const TIERS = [50,200,350,500,700,900,1100,1400,1700,2100,2500];
+    const TIERS = [120,350,600,900,1250,1650,2100,2600,3200,3800,4500];   // = soglie di brainType
     const crossed = TIERS.filter(x=>x<=cc).length;
     const DUR = reduce ? 0 : Math.min(8000, 2200 + crossed*550);   // lenta: si vedono tutti i passaggi
     const t0 = performance.now();
@@ -2756,13 +2747,11 @@ const timeLapse = {
     let lastSig = null, sameTry = 0;
     function round(){
       const L = api.level, E = Math.max(0, L-10), Li = Math.min(L, 10);
-      /* Rampa 1-10: granularita' delle lancette e ampiezza della differenza
-         1: ore intere <=4h | 2: ore intere <=6h | 3: mezz'ore <=3h | 4: mezz'ore <=5h
-         5: quarti <=2h | 6: quarti <=3h30 | 7: quarti <=5h | 8: passi da 5min <=2h
-         9: 5min <=4h | 10: 5min <=6h (con esche a +-5/10 minuti, per costruzione) */
-      const step     = E>=2 ? 1 : [60,60,30,30,15,15,15,5,5,5][Li-1];   // oltre l'11: precisione al MINUTO
-      const maxSteps = E>0 ? Math.floor(Math.min(360 + 60*E, 660)/step)
-                           : [4, 6, 6, 10, 8, 14, 20, 24, 48, 72][Li-1];
+      /* Rampa 1-10: cambia solo la GRANULARITA' delle lancette, mentre la differenza
+         massima resta SEMPRE 6 ore.
+         1-2: ore intere | 3-4: mezz'ore | 5-6: quarti d'ora | 7-8: 10 minuti | 9-10: 5 minuti */
+      const step     = E>=2 ? 1 : [60,60,30,30,15,15,10,10,5,5][Li-1];   // oltre l'11: al MINUTO
+      const maxSteps = Math.floor(360/step);      // differenza massima: sempre 6 ore
       const mm = []; for(let v=0; v<60; v+=step) mm.push(v);
       const m1 = rnd(12)*60 + (L<=1 ? 0 : pick(mm));
       let diff = step * (1 + rnd(maxSteps));
@@ -2781,7 +2770,9 @@ const timeLapse = {
       const cands = [];
       for(const k of [1,-1,2,-2,3,-3,4,-4,6,-6]){
         const d = diff + step*k;
-        if(d>0 && d<720 && !cands.includes(d)) cands.push(d);
+        // anche le opzioni sbagliate restano entro le 6 ore, come la risposta giusta:
+        // altrimenti si potrebbero scartare a occhio senza guardare gli orologi
+        if(d>0 && d<=360 && !cands.includes(d)) cands.push(d);
       }
       const opts = shuffle([diff].concat(shuffle(cands).slice(0,3)))
         .map(v=>({label:fmt(v),value:v}));
@@ -2997,11 +2988,11 @@ const actionSequence = {
       }
       if(seq.length>24){ seq=[rnd(N)]; replayFull=true; }   // vetta leggendaria: sequenza nuova
       const len = seq.length;
-      /* PUNTEGGIO CRESCENTE: ogni passo indovinato vale una quota FISSA del valore
-         della domanda, non una fetta di una torta divisa in parti uguali. Cosi' piu'
-         la sequenza si allunga, piu' il giro rende: un giro da 8 passi paga molto
-         piu' di uno da 2, invece che uguale. */
-      const STEP_SHARE = 0.15;
+      /* Punteggio 50/50 come negli altri giochi a piu' risposte: meta' del valore
+         della domanda e' distribuita sui passi indovinati (e resta acquisita anche
+         se poi si sbaglia), meta' arriva al completamento della sequenza ed e'
+         l'unica parte che muove la serie e fa avanzare il livello. */
+      const shares = api.halfShares(len);
       S.innerHTML = "";
       const q = el("p","question center", grew ? t("seq_grow",len) : t("q_watch",len));
       S.append(q);
@@ -3043,7 +3034,7 @@ const actionSequence = {
               b.classList.add("lit");
               SFX.pad(pi);
               setTimeout(()=>b.classList.remove("lit"),220);
-              api.stepAward(STEP_SHARE);           // quota fissa per ogni passo indovinato
+              api.partial(shares[idx]);            // 50% del valore, una quota per passo
               idx++;
               if(idx===len){
                 locked = true;
@@ -3437,6 +3428,11 @@ window.addEventListener("error", e=>{
 function setVH(){
   try{ document.documentElement.style.setProperty("--vh", window.innerHeight+"px"); }catch(e){}
 }
+/* la lingua e il titolo del documento seguono l'interfaccia gia' dal primo avvio,
+   non solo dopo un cambio manuale (conta per la lettura vocale e per i preferiti) */
+document.documentElement.lang = LANG;
+document.title = t("title");
+
 setVH();
 window.addEventListener("resize", setVH);
 window.addEventListener("orientationchange", setVH);
