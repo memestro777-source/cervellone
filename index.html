@@ -120,7 +120,6 @@
   @keyframes drift{from{transform:translateY(-6px);}to{transform:translateY(6px);}}
   .asteroid.pop{animation:apop .25s ease forwards;}
   @keyframes apop{to{transform:scale(0);opacity:0;}}
-  .padgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:320px;margin:14px auto 0;}
   .pad{aspect-ratio:1;border-radius:18px;border:none;cursor:pointer;opacity:.55;transition:opacity .1s, transform .1s;font-size:34px;}
   .pad.lit{opacity:1;transform:scale(1.06);box-shadow:0 0 24px currentColor;}
   /* RUOTA DELLE NOTE: spicchi in cerchio, uno per nota del circolo delle quinte */
@@ -197,7 +196,6 @@
   .btn.big{font-size:clamp(17px,5vw,21px);padding:clamp(12px,3vw,16px) clamp(20px,6vw,30px);}
   .braintype{font-size:clamp(20px,6vw,26px);}
   .gamestage > svg{width:100%;max-width:340px;height:auto;}
-  .padgrid{max-width:min(320px,84vw);}
   .asterofield{height:clamp(250px,46vh,330px);}
   .plate{width:min(240px,70vw);aspect-ratio:1;height:auto;}
   .platechip{width:clamp(42px,21.5%,52px);aspect-ratio:1;height:auto;margin:0;transform:translate(-50%,-50%);font-size:clamp(17px,4.5vw,21px);}
@@ -393,7 +391,6 @@
   .cellbtn.holecell{color:#c98a00;}
   .cellbtn.activecell{outline:3px solid var(--gold);}
   .gamestage > svg{max-width:400px;}
-  .padgrid{max-width:min(370px,88vw);}
   .pad{box-shadow:0 6px 16px rgba(80,70,160,.22), inset 0 -8px 14px rgba(0,0,0,.12);border:none;}
   .plate{width:min(280px,76vw);
     background:radial-gradient(circle at 42% 36%, #ffffff, #e9e4ff 70%);
@@ -451,7 +448,6 @@
   @media (min-width:600px) and (min-height:680px){ :root{--boardsize:min(460px,90vw,calc(var(--stageh,62vh) * 0.66));} }
   @media (min-width:1000px) and (min-height:740px){ :root{--boardsize:min(520px,calc(var(--stageh,64vh) * 0.68));} }
   .cellgrid{max-width:var(--boardsize) !important;width:100%;}
-  .padgrid.nine{width:var(--boardsize) !important;max-width:var(--boardsize) !important;}
   .gamestage > svg.boardsvg{width:var(--boardsize);max-width:var(--boardsize);max-height:min(var(--boardsize),32vh);}
 
   /* ================= SCHERMATA UNICA (fit al dispositivo, zero scroll) ================= */
@@ -490,7 +486,6 @@
   .topbar{min-height:26px;}
   .cellgrid{max-width:min(400px,92vw,44vh);margin:8px auto;}
   .plate{width:min(280px,76vw,36vh);margin-top:6px;}
-  .padgrid{max-width:min(370px,88vw,38vh);gap:10px;margin-top:8px;}
   .pad{font-size:min(34px,4.5vh);}
   .asterofield{height:min(380px, calc(var(--stageh,55vh) * 0.64));}
   .shufflecard{width:min(clamp(72px,21vw,96px),12vh);font-size:clamp(34px,9vw,44px);}
@@ -515,17 +510,6 @@
     .gamestage > svg{max-height:34vh;}
   }
 
-  .padgrid.nine{grid-template-columns:repeat(3,1fr);max-width:min(310px,82vw,34vh);gap:9px;}
-  .pad.neutral{
-    background:linear-gradient(180deg,#ffffff,#efeaff);
-    border:1px solid #d9d2f6;opacity:1;color:transparent;
-    box-shadow:0 3px 10px rgba(80,70,160,.12);
-  }
-  .pad.neutral.lit{
-    background:linear-gradient(135deg,#1fd6a0,#38b2f2);
-    box-shadow:0 0 20px rgba(31,214,160,.55);
-    transform:scale(1.07);
-  }
 
   .confetto{
     position:fixed;top:-16px;z-index:80;pointer-events:none;
@@ -544,8 +528,6 @@
     50%{transform:scale(1.14);filter:drop-shadow(0 0 34px rgba(232,165,27,1));}
   }
 
-  .padgrid.nine{max-width:none;width:min(92vw,42vh,370px);gap:clamp(7px,1.4vh,11px);}
-  .pad.neutral{min-height:52px;font-size:0;}
 
   /* ================= RESPONSIVE 2.0: ogni gioco usa al meglio lo spazio ================= */
   /* il contenuto del gioco si centra verticalmente nell'area disponibile */
@@ -562,7 +544,6 @@
     #app{max-width:740px;}
     .gamestage > svg{max-width:min(480px,52vh);max-height:46vh;}
     .cellgrid{max-width:min(470px,48vh);}
-    .padgrid.nine{width:min(430px,44vh);}
     .plate{width:min(330px,40vh);}
     .asterofield{height:clamp(280px,44vh,430px);max-width:640px;margin:0 auto;width:100%;}
     .btn{font-size:19px;}
@@ -578,7 +559,6 @@
   @media (min-width:1100px) and (min-height:800px){
     .gamestage > svg{max-width:min(540px,54vh);}
     .cellgrid{max-width:min(520px,52vh);}
-    .padgrid.nine{width:min(470px,48vh);}
   }
   /* smartphone in orizzontale (poca altezza): tutto compattissimo */
   @media (max-height:480px){
@@ -602,7 +582,6 @@
     .gamestage > svg{max-width:420px;max-height:44vh;}
     .cellgrid{max-width:min(460px,92vw,46vh);gap:9px;}
     .plate{width:min(320px,70vw,40vh);}
-    .padgrid.nine{width:min(88vw,44vh,420px);}
     .asterofield{height:clamp(240px,42vh,420px);}
     .shufflecard{width:clamp(58px,12vw,76px);font-size:clamp(30px,6vw,40px);}
     .bignum{font-size:min(11vw,70px,9.5vh);}
@@ -618,7 +597,6 @@
     .cellbtn{font-size:30px;}
     .plate{width:min(340px,42vh);}
     .platechip{font-size:24px;}
-    .padgrid.nine{width:min(46vh,460px);}
     .asterofield{height:clamp(280px,46vh,460px);}
     .asteroid{width:80px;height:80px;font-size:25px;}
     .shufflecard{width:80px;font-size:42px;}
@@ -650,16 +628,6 @@
 
   /* Action Sequence: 9 tessere in tinte vivide e armoniche col tema;
      da accese si schiariscono con un alone luminoso */
-  .pad.c1{background:#e2504c;} .pad.c1.lit{background:#ff7a70;box-shadow:0 0 22px #ff7a70;}
-  .pad.c2{background:#ee8a2f;} .pad.c2.lit{background:#ffab54;box-shadow:0 0 22px #ffab54;}
-  .pad.c3{background:#e5b32a;} .pad.c3.lit{background:#ffd34e;box-shadow:0 0 22px #ffd34e;}
-  .pad.c4{background:#17b389;} .pad.c4.lit{background:#3fe8b8;box-shadow:0 0 22px #3fe8b8;}
-  .pad.c5{background:#1ba4b8;} .pad.c5.lit{background:#3fd6ea;box-shadow:0 0 22px #3fd6ea;}
-  .pad.c6{background:#338fe0;} .pad.c6.lit{background:#62b7ff;box-shadow:0 0 22px #62b7ff;}
-  .pad.c7{background:#6c5ce7;} .pad.c7.lit{background:#9a8cff;box-shadow:0 0 22px #9a8cff;}
-  .pad.c8{background:#9b4ddb;} .pad.c8.lit{background:#c07bff;box-shadow:0 0 22px #c07bff;}
-  .pad.c9{background:#e4569c;} .pad.c9.lit{background:#ff85c2;box-shadow:0 0 22px #ff85c2;}
-  .pad.neutral{border:1px solid rgba(255,255,255,.45);}
 
   /* ============ FIX VIEWPORT MOBILI ============ */
   #app{
@@ -1384,7 +1352,7 @@ function runStage(cat, game){
   /* AUTO-FIT: a ogni cambio di contenuto dell'area di gioco misuriamo lo spazio
      REALMENTE disponibile (altezza area − domanda − pulsanti) e ridimensioniamo
      la "tavola" (SVG, griglie, campo bolle, piatto, lavagna) perché ci stia. */
-  const BOARD_SEL = "svg, .asterofield, .cellgrid, .padgrid, .plate, .mathboard, .scalewrap, .flipwrap, .padwheel";
+  const BOARD_SEL = "svg, .asterofield, .cellgrid, .plate, .mathboard, .scalewrap, .flipwrap, .padwheel";
   /* RIQUADRO DI GIOCO BLOCCATO: la zona-domanda e la zona-risposte vengono
      misurate e CONGELATE al primo round dello stadio; da li' in poi la tavola
      ha SEMPRE la stessa identica scatola, qualunque cosa cambi nel contenuto
