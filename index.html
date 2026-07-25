@@ -100,6 +100,9 @@
   .chip.done{background:var(--mint);color:#0c2b20;}
   .chip.cur{outline:3px solid var(--gold);}
   .bignum{font-size:56px;font-weight:900;text-align:center;margin:6px 0;color:var(--gold);}
+  /* le due lavagne di calcolo (operatori mancanti e uguaglianza rotta) usano lo
+     stesso colore delle indicazioni: sono numeri da leggere, non un risultato */
+  .bignum.mathboard{color:var(--dim);}
   .braintype{font-size:26px;font-weight:900;text-align:center;color:var(--mint);margin:0;}
   .stagelist{display:flex;flex-direction:column;gap:8px;}
   .stagerow{display:flex;justify-content:space-between;background:var(--panel2);padding:10px 16px;border-radius:12px;font-weight:800;}
@@ -120,12 +123,29 @@
   .padgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:320px;margin:14px auto 0;}
   .pad{aspect-ratio:1;border-radius:18px;border:none;cursor:pointer;opacity:.55;transition:opacity .1s, transform .1s;font-size:34px;}
   .pad.lit{opacity:1;transform:scale(1.06);box-shadow:0 0 24px currentColor;}
+  /* RUOTA DELLE NOTE: spicchi in cerchio, uno per nota del circolo delle quinte */
+  /* la ruota si dimensiona da sola (auto-adattamento): le regole generali sugli
+     SVG del tabellone non devono schiacciarla, o smetterebbe di essere tonda */
+  .gamestage > svg.padwheel{max-height:none!important;max-width:none!important;}
+  .padwheel{display:block;margin:0 auto;overflow:visible;}
+  .padwheel .pad{opacity:.5;cursor:pointer;transition:opacity .1s, transform .12s;
+    transform-origin:center;transform-box:fill-box;}
+  .padwheel .pad path{stroke:rgba(255,255,255,.18);stroke-width:1.5;}
+  .padwheel .pad text{opacity:.9;}
+  .padwheel .pad.lit{opacity:1;transform:scale(1.07);}
+  .padwheel .pad.lit path{stroke:#fff;stroke-width:3;filter:drop-shadow(0 0 8px rgba(255,255,255,.8));}
+  .padwheel .pad.fixlit{opacity:1;}
+  .padwheel .pad.fixlit path{fill:var(--coral)!important;stroke:#fff;stroke-width:3;}
   .seqrow{display:flex;gap:0.2em;justify-content:center;font-size:44px;min-height:64px;align-items:center;}
   /* BILANCE: le misure arrivano dall'auto-adattamento, in PIXEL calcolati sullo
      spazio realmente disponibile. Niente percentuali: cosi' il tabellone non puo'
      sbordare su nessun browser, comunque siano disposte (2, 3, 2+2, 3+2, 3+3). */
   .scalewrap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
   .scalerow{display:flex;justify-content:center;align-items:center;gap:6px;}
+  /* esagoni con il fiore: sono i bersagli da toccare */
+  .hexcell{cursor:pointer;}
+  .hexcell polygon{transition:fill .12s;}
+  .hexcell:active polygon{fill:#4a3f8a;}
   .arrowseq{display:flex;gap:6px;justify-content:center;font-size:30px;font-weight:900;flex-wrap:wrap;
     background:var(--panel2);border-radius:12px;padding:8px 10px;margin-bottom:10px;}
   .cube-fall{animation:cubefall .4s cubic-bezier(.2,.7,.3,1.15) both;}
@@ -249,6 +269,7 @@
   .platechip{border:1px solid rgba(255,255,255,.25);}
   .shufflecard{border:1px solid rgba(255,255,255,.08);}
   .bignum{text-shadow:0 0 22px rgba(255,207,87,.35);}
+  .bignum.mathboard{text-shadow:none;}
   .feedback{letter-spacing:.3px;}
 
   /* ---------- BOLLE 🫧 (ex asteroidi) ---------- */
@@ -837,7 +858,9 @@ const SFX = (()=>{
       noise(0.05,{vol:0.04,from:2000,to:3200,q:3,when:0.012});
     },
     pad(i){
-      const f = [262,294,330,392,440,523,587,659,784][i];
+      /* circolo delle quinte: FA DO SOL RE LA MI SI, tenute nella stessa ottava
+         cosi' l'orecchio le distingue senza salire troppo di registro */
+      const f = [349.23, 523.25, 392.00, 587.33, 440.00, 659.25, 493.88][i] || 440;
       tone(f,0.34,{vol:0.13});
       tone(f*2,0.22,{type:"triangle",vol:0.04,when:0.012});
     },
@@ -878,7 +901,7 @@ const STR = {
     back:"\u2190 Indietro",
     record:"Record", plays_lbl:"partite", new_record:"\ud83c\udfc6 Nuovo record!", strength:"Il tuo punto forte", train:"Da allenare",
     mode_rand:"\ud83c\udfb2 Sfida casuale", mode_choice:"\ud83c\udfaf Sfida personalizzata",
-    mode_desc:"<b>Casuale</b>: sfida a sorte per ogni stadio. <b>Personalizzata</b>: decidi tu ogni sfida.",
+    mode_desc:"<b>Casuale</b>: sfida a sorte per ogni stadio.<br><b>Personalizzata</b>: decidi tu ogni sfida.",
     stage:"Stadio", drawn:"Sfida estratta:", go:"Via!",
     pick_cat:"Scegli la categoria:", pick_ch:"Scegli la sfida:", challenges:"sfide",
     back_cat:"\u2190 Cambia categoria", restart:"Da capo",
@@ -905,6 +928,7 @@ const STR = {
     q_memwhere:"Memorizza le carte, poi tocca quando sei pronto", q_whereis:"Dov'\u00e8",
     q_seq:"Memorizza la sequenza, poi tocca la prima forma", q_repeat:"Ora ripetila in ordine!",
     q_watch:"Osserva la sequenza\u2026 ({0})", q_yourturn:"Tocca a te! Ripeti la sequenza ({0})",
+    notes:"FA,DO,SOL,RE,LA,MI,SI",
     seq_grow:"La sequenza si allunga! Osserva\u2026 ({0})",
     q_gridmem:"Memorizza le \u2b50, poi tocca la prima", q_gridwhere:"Dove erano? Tocca le {0} caselle!",
     q_odd:"Tocca l'intruso!",
@@ -919,7 +943,7 @@ const STR = {
     g_clock_n:"Differenza tra Orologi", g_clock_d:"Calcola quanto tempo passa tra i due orologi.",
     g_flip_n:"Gira e Trova", g_flip_d:"Memorizza gli oggetti e ritrovali una volta coperti.",
     g_shape_n:"Ordine delle Forme", g_shape_d:"Memorizza la sequenza di forme e ripetila.",
-    g_action_n:"Sequenza di Azioni", g_action_d:"Guarda i tasti illuminarsi e ripeti la sequenza.",
+    g_action_n:"Sequenza Musicale", g_action_d:"Ascolta le note che si illuminano e ripeti la sequenza.",
     g_grid_n:"Reticolo di Memoria", g_grid_d:"Memorizza le posizioni delle stelle e toccale.",
     g_odd_n:"Trova l'Intruso", g_odd_d:"Tocca l'elemento diverso dagli altri.",
     g_sudoku_n:"Sudoku dei Simboli", g_sudoku_d:"Deduci il simbolo mancante in riga e colonna.",
@@ -937,7 +961,7 @@ const STR = {
     back:"\u2190 Back",
     record:"Best", plays_lbl:"games played", new_record:"\ud83c\udfc6 New record!", strength:"Your strength", train:"Needs training",
     mode_rand:"\ud83c\udfb2 Random challenge", mode_choice:"\ud83c\udfaf Custom challenge",
-    mode_desc:"<b>Random</b>: a surprise challenge each stage. <b>Custom</b>: you choose every challenge.",
+    mode_desc:"<b>Random</b>: a surprise challenge each stage.<br><b>Custom</b>: you choose every challenge.",
     stage:"Stage", drawn:"Your challenge:", go:"Go!",
     pick_cat:"Pick a category:", pick_ch:"Pick a challenge:", challenges:"challenges",
     back_cat:"\u2190 Change category", restart:"Restart",
@@ -964,6 +988,7 @@ const STR = {
     q_memwhere:"Memorize the cards, then tap when ready", q_whereis:"Where is",
     q_seq:"Memorize the sequence, then tap the first shape", q_repeat:"Now repeat it in order!",
     q_watch:"Watch the sequence\u2026 ({0})", q_yourturn:"Your turn! Repeat the sequence ({0})",
+    notes:"F,C,G,D,A,E,B",
     seq_grow:"The sequence grows! Watch\u2026 ({0})",
     q_gridmem:"Memorize the \u2b50, then tap the first one", q_gridwhere:"Where were they? Tap the {0} cells!",
     q_odd:"Tap the odd one out!",
@@ -978,7 +1003,7 @@ const STR = {
     g_clock_n:"Clock Difference", g_clock_d:"Work out the time between the two clocks.",
     g_flip_n:"Flip & Find", g_flip_d:"Memorize the items, then find them face down.",
     g_shape_n:"Shape Order", g_shape_d:"Memorize the shape sequence and repeat it.",
-    g_action_n:"Action Sequence", g_action_d:"Watch the pads light up and repeat the sequence.",
+    g_action_n:"Music Sequence", g_action_d:"Listen to the notes lighting up and repeat the sequence.",
     g_grid_n:"Memory Grid", g_grid_d:"Memorize the star positions and tap them.",
     g_odd_n:"Odd One Out", g_odd_d:"Tap the one that's different.",
     g_sudoku_n:"Symbol Sudoku", g_sudoku_d:"Deduce the missing symbol in each row and column.",
@@ -1359,7 +1384,7 @@ function runStage(cat, game){
   /* AUTO-FIT: a ogni cambio di contenuto dell'area di gioco misuriamo lo spazio
      REALMENTE disponibile (altezza area − domanda − pulsanti) e ridimensioniamo
      la "tavola" (SVG, griglie, campo bolle, piatto, lavagna) perché ci stia. */
-  const BOARD_SEL = "svg, .asterofield, .cellgrid, .padgrid, .plate, .mathboard, .scalewrap, .flipwrap";
+  const BOARD_SEL = "svg, .asterofield, .cellgrid, .padgrid, .plate, .mathboard, .scalewrap, .flipwrap, .padwheel";
   /* RIQUADRO DI GIOCO BLOCCATO: la zona-domanda e la zona-risposte vengono
      misurate e CONGELATE al primo round dello stadio; da li' in poi la tavola
      ha SEMPRE la stessa identica scatola, qualunque cosa cambi nel contenuto
@@ -1442,6 +1467,9 @@ function runStage(cat, game){
       const s = Math.floor(Math.min(availH, availW, 540));
       board.style.maxWidth = s+"px";
       if(board._sqfix) requestAnimationFrame(board._sqfix);
+    }else if(board.classList.contains("padwheel")){
+      const d = Math.max(90, Math.min(availW, availH, 430));   // sempre quadrata
+      board.style.width = d+"px"; board.style.height = d+"px";
     }else if(board.classList.contains("flipwrap")){
       /* carte in PIXEL, calcolate sullo spazio reale: la riga non esce mai dallo
          schermo e le carte restano quanto piu' grandi possibile (rapporto 58x76) */
@@ -2321,7 +2349,7 @@ const hexPath = {
       }while(tries++<80 && ((q===0&&r===0) || steps.length<nSteps || (needBack && !hasBack)));
       if(q===0&&r===0) return round();
       const destKey = q+","+r;
-      const letters=["\ud83c\udf39","\ud83c\udf3b","\ud83c\udf38","\ud83c\udf37","\ud83c\udf3c","\ud83c\udf40"]
+      const letters=["\ud83c\udf39","\ud83c\udf3b","\ud83d\udc90","\ud83c\udf37","\ud83c\udf3c","\ud83e\udd40"]
         .slice(0,nFlowers);  // rosa, girasole, ciliegio, tulipano, margherita, quadrifoglio
       const all=[];
       for(let a=-R;a<=R;a++)for(let b=-R;b<=R;b++) if(inGrid(a,b)&&!(a===0&&b===0)) all.push(a+","+b);
@@ -2339,6 +2367,7 @@ const hexPath = {
       svg.setAttribute("viewBox","0 0 300 270");
       svg.setAttribute("width","280");
       const size=28, ox=150, oy=135;
+      const celle = [];                       // esagoni col fiore: sono i bersagli
       for(let a=-R;a<=R;a++)for(let b=-R;b<=R;b++){
         if(!inGrid(a,b)) continue;
         const [x,y]=hexCenter(a,b,size,ox,oy);
@@ -2347,12 +2376,18 @@ const hexPath = {
           const ang = Math.PI/180*(60*i-30);
           pts.push((x+size*0.92*Math.cos(ang))+","+(y+size*0.92*Math.sin(ang)));
         }
+        const k=a+","+b;
+        let lbl = (a===0&&b===0)?"🐝":(houseOf[k]?houseOf[k]:null);
+        const isFiore = !!houseOf[k];
+        /* gli esagoni con un fiore sono BERSAGLI: si risponde toccando direttamente
+           l'alveare, senza pulsanti sotto. Il gruppo tiene insieme cella e fiore,
+           cosi' il tocco funziona su tutta la casella e non solo sul disegnino. */
+        const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+        if(isFiore) g.setAttribute("class","hexcell");
         const p=document.createElementNS("http://www.w3.org/2000/svg","polygon");
         p.setAttribute("points",pts.join(" "));
         p.setAttribute("fill","#2f2868");p.setAttribute("stroke","#1b1745");p.setAttribute("stroke-width","2");
-        svg.append(p);
-        const k=a+","+b;
-        let lbl = (a===0&&b===0)?"🐝":(houseOf[k]?houseOf[k]:null);
+        g.append(p);
         if(lbl){
           const t=document.createElementNS("http://www.w3.org/2000/svg","text");
           t.setAttribute("x",x);t.setAttribute("y",y+8);
@@ -2360,14 +2395,33 @@ const hexPath = {
           t.setAttribute("font-size",lbl==="\ud83d\udc1d"?"22":"19");
           t.setAttribute("font-weight","900");
           t.setAttribute("fill","#ffc94d");
-          t.textContent=lbl;svg.append(t);
+          t.setAttribute("pointer-events","none");
+          t.textContent=lbl;g.append(t);
         }
+        if(isFiore){ g.dataset.fiore = houseOf[k]; celle.push({g, p, fiore:houseOf[k]}); }
+        svg.append(g);
       }
-      const board = el("div"); board.append(seq,svg);
-      // SEMPRE 4 tasti: il fiore giusto + 3 degli altri (sulla mappa possono essercene di piu')
-      const btnLetters = shuffle([correctLetter].concat(shuffle(letters.filter(l=>l!==correctLetter)).slice(0,3)));
-      askOptions(S,t("q_hex"),board,
-        btnLetters.map(l=>({label:"<span style='font-size:clamp(26px,7vw,34px);line-height:1'>"+l+"</span>",value:l})), correctLetter, api, round);
+      S.innerHTML = "";
+      /* frecce e alveare in un unico blocco: cosi' l'auto-adattamento conta anche
+         la riga delle frecce e l'alveare non sborda dall'area di gioco */
+      const board = el("div"); board.append(seq, svg);
+      S.append(el("p","question center",t("q_hex")), board);
+      let locked = false;
+      celle.forEach(c=>{
+        c.g.addEventListener("click", ()=>{
+          if(locked) return;
+          locked = true;
+          const giusto = c.fiore === correctLetter;
+          c.p.setAttribute("fill", giusto ? "#17c795" : "#e0455a");
+          if(!giusto){
+            const buona = celle.find(x=>x.fiore===correctLetter);
+            if(buona){ buona.p.setAttribute("fill","#ffe6ea"); buona.p.setAttribute("stroke","#e0455a"); buona.p.setAttribute("stroke-width","4"); }
+          }
+          giusto ? api.correct() : api.wrong();
+          shieldInput(S);
+          setTimeout(round, giusto ? 520 : 1200);
+        });
+      });
     }
     round();
   }
@@ -2479,6 +2533,11 @@ const missingSign = {
   start(api){
     const S = api.stage;
     const OPS = ["+","\u2212","\u00d7","\u00f7"];
+    /* un colore per operatore: piu' e' rapido riconoscerli, piu' il gioco premia
+       il ragionamento invece della lettura */
+    const OPCOL = {"+":"#5db8ff","\u2212":"#ff8ab5","\u00d7":"#ff9f43","\u00f7":"#b78bff"};
+    const opHTML = o => "<span style='color:"+OPCOL[o]+";font-weight:900'>"+o+"</span>";
+    const OPS_UI = ["+","\u00d7","\u2212","\u00f7"];   // ordine dei tasti: piu, per, meno, diviso
     const apply = (a,op,b)=> op==="+" ? a+b : op==="\u2212" ? a-b : op==="\u00d7" ? a*b : a/b;
     // valutazione CON le precedenze (prima \u00d7 e \u00f7, poi + e \u2212)
     const applyPrec = (ns, os)=>{
@@ -2593,7 +2652,7 @@ const missingSign = {
       exprEl.style.fontSize = slots>1 ? "min(clamp(24px,7vw,36px),5vh)" : "min(clamp(30px,9vw,44px),6vh)";
       const chosen = [];
       const slot = i => chosen[i]!==undefined
-        ? "&nbsp;<span style='color:var(--gold)'>"+chosen[i]+"</span>&nbsp;"
+        ? "&nbsp;"+opHTML(chosen[i])+"&nbsp;"
         : "&nbsp;<span style='color:var(--mint)'>?</span>&nbsp;";
       const renderExpr = ()=>{
         let s;
@@ -2605,8 +2664,8 @@ const missingSign = {
       S.append(exprEl);
       const grid = el("div","optgrid");   // SEMPRE tutti e 4 gli operatori
       let locked = false;
-      OPS.forEach(o=>{
-        const b = el("button","btn",o);
+      OPS_UI.forEach(o=>{
+        const b = el("button","btn",opHTML(o));
         b.onclick = ()=>{
           if(locked) return;
           chosen.push(o);
@@ -2843,7 +2902,7 @@ const shuffleFind = {
       /* Rampa 1-10: 2, 3, 3, 4, 4, 5, 5, 6, 7, 8 carte -- oltre il 10: sempre 8.
          Il tempo di osservazione lo decidi tu: le carte si girano al tuo tocco. */
       const n        = [2,3,3,4,4,5,5,6,7,8][Li-1];
-      const EMO = ["🍎","🐸","🍇","⭐","💧","🎱","🌸","🥥"];  // rosso, verde, viola, giallo, blu, nero, rosa, bianco
+      const EMO = ["🔥","⛰️","☂️","💧","⚡","🌪️","🌈","🌦️"];  // elementi naturali
       const items = shuffle(EMO).slice(0,n);
       const target = pick(items);
       const sig = items.join("")+"|"+target;                   // MAI due file di carte identiche di fila
@@ -2920,7 +2979,7 @@ const shapeOrder = {
   get name(){return t("g_shape_n");}, get desc(){return t("g_shape_d");},
   start(api){
     const S = api.stage;
-    const SHAPES = ["🔺","🟦","🟢","⭐","🌸","💜"];
+    const SHAPES = ["🟦","🟢","⭐","💜","❌","♠️"];
     let timeouts = [];
     let lastSig = null, sameTry = 0;
     function round(){
@@ -3019,7 +3078,13 @@ const actionSequence = {
     const S = api.stage;
     let timeouts = [];
     const later = (fn,ms)=>timeouts.push(setTimeout(fn,ms));
-    const N = 9;                                    // reticolo FISSO 3x3, sempre uguale
+    /* RUOTA a spicchi: 7 settori disposti in cerchio, uno per nota del circolo
+       delle quinte (FA DO SOL RE LA MI SI). Si parte in alto a destra e si gira
+       in senso orario, come sul quadrante di un orologio. */
+    const N = 7;
+    // nomi delle note nella lingua scelta: DO RE MI... in italiano, C D E... in inglese
+    const NOTE = t("notes").split(",");
+    const HUE  = [ 8, 44, 78, 145, 190, 232, 285 ];   // un colore per spicchio
     /* SIMON PURO: si parte da UN passo, e a ogni completamento se ne aggiunge uno.
        Si guarda SOLO il passo nuovo. Se SBAGLI si ricomincia da capo, con una
        sequenza NUOVA di un solo passo.
@@ -3052,15 +3117,42 @@ const actionSequence = {
       S.innerHTML = "";
       const q = el("p","question center", grew ? t("seq_grow",len) : t("q_watch",len));
       S.append(q);
-      const grid = el("div","padgrid nine");
+      const NS = "http://www.w3.org/2000/svg";
+      const grid = document.createElementNS(NS,"svg");
+      grid.setAttribute("class","padwheel");
+      grid.setAttribute("viewBox","-105 -105 210 210");
+      const R = 100, r0 = 34;                    // raggio esterno e foro centrale
       const pads = [];
       for(let i=0;i<N;i++){
-        const b = el("button","pad neutral c"+(i+1),"\u00a0");
-        b.disabled = true;
-        pads.push(b); grid.append(b);
+        // si parte in ALTO A DESTRA e si prosegue in senso orario
+        const a0 = -Math.PI/2 + (i)*(2*Math.PI/N) + 0.03;
+        const a1 = -Math.PI/2 + (i+1)*(2*Math.PI/N) - 0.03;
+        const P = (rad,a)=>[(rad*Math.cos(a)).toFixed(2),(rad*Math.sin(a)).toFixed(2)];
+        const [x1,y1]=P(R,a0), [x2,y2]=P(R,a1), [x3,y3]=P(r0,a1), [x4,y4]=P(r0,a0);
+        const g = document.createElementNS(NS,"g");
+        g.setAttribute("class","pad neutral");
+        const path = document.createElementNS(NS,"path");
+        path.setAttribute("d","M "+x1+" "+y1+" A "+R+" "+R+" 0 0 1 "+x2+" "+y2+
+                              " L "+x3+" "+y3+" A "+r0+" "+r0+" 0 0 0 "+x4+" "+y4+" Z");
+        path.setAttribute("fill","hsl("+HUE[i]+",72%,58%)");
+        g.append(path);
+        // nome della nota al centro dello spicchio
+        const am = (a0+a1)/2, rm = (R+r0)/2;
+        const tx = document.createElementNS(NS,"text");
+        tx.setAttribute("x",(rm*Math.cos(am)).toFixed(1));
+        tx.setAttribute("y",(rm*Math.sin(am)).toFixed(1));
+        tx.setAttribute("text-anchor","middle");
+        tx.setAttribute("dominant-baseline","central");
+        tx.setAttribute("font-size","17"); tx.setAttribute("font-weight","900");
+        tx.setAttribute("fill","#fff"); tx.setAttribute("pointer-events","none");
+        tx.textContent = NOTE[i];
+        g.append(tx);
+        g.dataset.i = i;
+        g.setAttribute("role","button");            // gli spicchi non sono <button>: lo dichiariamo
+        g.setAttribute("aria-label", NOTE[i]);
+        pads.push(g); grid.append(g);
       }
       S.append(grid);
-      squareCells(grid);
       const flash = (p, ms)=>{
         pads[p].classList.add("lit");
         SFX.pad(p);
@@ -3075,55 +3167,49 @@ const actionSequence = {
       seq.slice(firstShown).forEach((p,i)=>{
         pb(()=>flash(p, lit), 300+i*gap);
       });
+      /* Un solo gestore per spicchio, registrato una volta sola: sugli elementi SVG
+         non si puo' contare sull'assegnazione diretta del gestore. Il comportamento
+         cambia con la fase, non con il gestore. */
+      let armed = false, idx = 0, locked = false;
       const enterInput = ()=>{
         if(phase!=="play") return;
         phase = "input";
         pbT.forEach(clearTimeout);
         pads.forEach(b=>b.classList.remove("lit"));
         q.textContent = t("q_yourturn",len);
-        pads.forEach(b=>b.disabled=false);
-        let idx = 0, locked = false;
-        pads.forEach((b,pi)=>{
-          b.onclick = ()=>{
-            if(locked) return;
-            if(pi===seq[idx]){
-              b.classList.add("lit");
-              SFX.pad(pi);
-              setTimeout(()=>b.classList.remove("lit"),220);
-              api.partial(shares[idx]);            // 50% del valore, una quota per passo
-              idx++;
-              if(idx===len){
-                locked = true;
-                api.valueCorrect(roundValue);       // premio di completamento (con la serie)
-                replayFull = false;                 // giro dopo: si aggiunge un passo e si guarda solo quello
-                pads.forEach(x=>x.disabled=true);
-                later(round,400);
-              }
-            }else{
-              locked = true;
-              b.classList.add("lit");
-              SFX.pad(pi);
-              pads[seq[idx]].classList.add("fixlit");   // correzione in ROSSO
-              api.wrong(true);        // si riparte da capo: sequenza NUOVA e livello 1
-              seq = [];            // SBAGLIATO: si ricomincia da capo, sequenza NUOVA
-              replayFull = true;
-              pads.forEach(x=>x.disabled=true);
-              shieldInput(S);
-              later(round,1300);
-            }
-          };
-        });
+        idx = 0; locked = false; armed = true;
       };
+      const tocca = (pi)=>{
+        if(Date.now()-t0 < 100) return;
+        if(!armed) enterInput();          // il primo tocco vale gia' come "sono pronto"
+        if(!armed || locked) return;
+        const b = pads[pi];
+        if(pi===seq[idx]){
+          b.classList.add("lit");
+          SFX.pad(pi);
+          setTimeout(()=>b.classList.remove("lit"),220);
+          api.partial(shares[idx]);            // 50% del valore, una quota per passo
+          idx++;
+          if(idx===len){
+            locked = true; armed = false;
+            api.valueCorrect(roundValue);      // premio di completamento (con la serie)
+            replayFull = false;                // giro dopo: si aggiunge un passo
+            later(round,400);
+          }
+        }else{
+          locked = true; armed = false;
+          b.classList.add("lit");
+          SFX.pad(pi);
+          pads[seq[idx]].classList.add("fixlit");   // correzione in ROSSO
+          api.wrong(true);
+          seq = [];              // si ricomincia da capo: sequenza NUOVA e punti da 10
+          replayFull = true;
+          shieldInput(S);
+          later(round,1300);
+        }
+      };
+      pads.forEach((b,pi)=> b.addEventListener("click", ()=>tocca(pi)));
       pb(enterInput, 300+(len-firstShown)*gap+120);
-      // durante la riproduzione: il tocco la interrompe E conta gia' come primo input
-      pads.forEach(b=>{
-        b.disabled = false;
-        b.onclick = ()=>{
-          if(Date.now()-t0 < 100) return;
-          enterInput();          // ora b.onclick e' il gestore di risposta...
-          b.onclick();           // ...e questo stesso tocco risponde subito
-        };
-      });
     }
     round();
     return ()=>timeouts.forEach(clearTimeout);
@@ -3213,8 +3299,24 @@ const oddOneOut = {
   get name(){return t("g_odd_n");}, get desc(){return t("g_odd_d");},
   start(api){
     const S = api.stage;
-    const EASY = [["\ud83c\udf4e","\ud83c\udf4f"],["\ud83c\udf15","\ud83c\udf17"],["\ud83d\ude00","\ud83d\ude0d"],["\ud83d\udc36","\ud83d\udc3a"],["\ud83d\udfe6","\ud83d\udfea"]];
-    const MED  = [["\ud83d\ude42","\ud83d\ude43"],["\u25d0","\u25d1"],["b","d"],["6","9"],["\ud83d\ude3a","\ud83d\ude38"],["\ud83c\udf1d","\ud83c\udf1a"],["p","q"]];
+    /* Tre gruppi SEPARATI, non piu' uno sottoinsieme dell'altro: cosi' una coppia
+       difficile non puo' capitare a un livello intermedio. La suddivisione segue
+       la differenza misurata tra le due immagini (piu' bassa = piu' ingannevole). */
+    /* Tre gruppi SEPARATI, ordinati per differenza MISURATA tra le due immagini
+       (piu' bassa = piu' ingannevole). Nessuna coppia appartiene a due gruppi. */
+    /* Tre gruppi SEPARATI: nessuna coppia appartiene a due gruppi. */
+    const EASY = [["\ud83d\udc2a","\ud83d\udc2b"],    // dromedario / cammello (una gobba o due)
+                  ["\ud83c\udf15","\ud83c\udf17"],    // luna piena / mezza
+                  ["\ud83d\ude00","\ud83d\ude0d"],    // sorriso / occhi a cuore
+                  ["\ud83d\udc80","\u2620\ufe0f"]];   // teschio / teschio e ossa
+    const MED  = [["\ud83c\udf15","\ud83c\udf16"],    // luna piena / gibbosa
+                  ["\ud83d\ude3a","\ud83d\ude38"],    // gatto sorride / ride
+                  ["\u2764\ufe0f","\ud83d\udc94"],    // cuore / cuore spezzato
+                  ["\ud83d\udd3c","\ud83d\udd3d"]];   // triangolo su / giu
+    const HARD = [["\u23e9","\u23ea"],                  // doppia freccia specchiata
+                  ["6\ufe0f\u20e3","9\ufe0f\u20e3"],  // sei / nove
+                  ["\ud83d\udd54","\ud83d\udd56"],    // le cinque / le sette
+                  ["\ud83d\ude42","\ud83d\ude43"]];   // faccia dritta / capovolta
     let lastSig = null, sameTry = 0;
     function round(){
       const L = api.level, E = Math.max(0, L-10), Li = Math.min(L, 10);
@@ -3222,11 +3324,12 @@ const oddOneOut = {
          1: 3x3 facili | 2: 3x3 facili | 3: 3x3 miste | 4: 4x4 facili | 5: 4x4 miste
          6: 4x4 miste | 7: 5x5 miste | 8: 5x5 difficili | 9: 5x5 miste | 10: 5x5 difficili
          La griglia non supera MAI il 5x5: oltre sarebbe solo piu' faticosa da spazzolare. */
-      const HARD = MED.filter(p=>["\ud83d\ude42","\u25d0","b","p"].includes(p[0]));
+      // le piu' feroci: faccia capovolta, orologi specchiati, sei/nove, triangolo ruotato
       const size = E>0 ? 5 : [3,3,3,4,4,4,5,5,5,5][Li-1];   // MAI oltre il 5x5
-      const pool = E>0 ? (E>=3 ? HARD : MED)
-                       : [EASY, EASY, EASY.concat(MED), EASY, EASY.concat(MED),
-                          EASY.concat(MED), EASY.concat(MED), MED, EASY.concat(MED), MED][Li-1];
+      /* le difficili entrano solo dal Lv7, e dal Lv10 in poi il gioco pesca solo da li' */
+      const pool = E>0 ? HARD
+                       : [EASY, EASY, EASY.concat(MED), EASY.concat(MED), MED,
+                          MED, MED.concat(HARD), MED.concat(HARD), HARD, HARD][Li-1];
       const pair = pick(pool);
       const flip = rnd(2)===0;
       const base = flip ? pair[1] : pair[0];
@@ -3266,7 +3369,7 @@ const symbolSudoku = {
   get name(){return t("g_sudoku_n");}, get desc(){return t("g_sudoku_d");},
   start(api){
     const S = api.stage;
-    const SYMS = ["\ud83d\udd3a","\u2b50","\ud83d\udfe2","\ud83c\udf19"];
+    const SYMS = ["\ud83d\udc2c","\ud83d\udc19","\ud83d\udc0a","\ud83d\udc1f"];   // delfino, polpo, coccodrillo, pesce
     function latin(n){
       const rows = shuffle(Array.from({length:n},(_,i)=>i));
       const cols = shuffle(Array.from({length:n},(_,i)=>i));
