@@ -1191,21 +1191,12 @@ function clearStage(){
 /* Velo sulla rivelazione della risposta. NON blocca e basta: toccandolo si salta
    l'attesa e parte subito il round successivo. Cosi' l'unico clic che "non funziona"
    e' quello che ripeterebbe una risposta gia' data, e chi vuole correre puo' farlo. */
+/* Velo sulla rivelazione della risposta: blocca l'input per tutto il tempo in cui
+   la correzione resta a schermo, cosi' la si guarda per forza e non si "sfonda"
+   il round successivo con un tocco di troppo. Non e' saltabile. */
 function shieldInput(S, avanti, ritardo){
-  const v = el("div","inputshield");
-  let fatto = false;
-  const vai = ()=>{
-    if(fatto) return; fatto = true;
-    clearTimeout(id);
-    if(typeof avanti === "function") avanti();
-  };
-  const id = setTimeout(vai, ritardo || 1200);
-  if(typeof avanti === "function"){
-    v.addEventListener("pointerdown", e=>{ e.preventDefault(); e.stopPropagation(); vai(); });
-    v.style.cursor = "pointer";
-  }
-  S.append(v);
-  return vai;
+  S.append(el("div","inputshield"));
+  if(typeof avanti === "function") setTimeout(avanti, ritardo || 1200);
 }
 
 /* dimensiona le bolle sulla cella reale (+ scostamento casuale, mai a contatto) */
@@ -1915,7 +1906,7 @@ function askOptions(stage, questionHTML, boardNode, options, correct, api, next,
       /* se hai indovinato si va avanti da soli; se hai sbagliato compare la
          correzione, e toccando lo schermo si salta subito al round successivo
          invece di dover aspettare */
-      if(ok) setTimeout(next, 350);
+      if(ok) setTimeout(next, 400);
       else shieldInput(stage, next, 1000);
     };
     grid.append(b);
@@ -2163,7 +2154,7 @@ const asteroids = {
             if(remaining.length===0){
               locked = true;
               api.correct(0.5);                        // 50% al completamento: serie + casella avanti
-              setTimeout(wave,350);
+              setTimeout(wave,400);
             }
           }else{
             locked = true;    // blocco input fino alla nuova ondata
@@ -2171,7 +2162,7 @@ const asteroids = {
             a.style.background="radial-gradient(circle at 32% 30%, #ff9a90, #c04a40 65%, #7a2620)";
             const rightBub = [...field.querySelectorAll(".asteroid")].find(x=>+x.textContent===remaining[0]);
             if(rightBub) rightBub.style.outline = "4px solid var(--coral)";   // correzione in ROSSO
-            shieldInput(S, wave, 1100);   // tocca la correzione per saltare l'attesa
+            shieldInput(S, wave, 1000);
           }
         };
         cell.append(a);
@@ -2493,7 +2484,8 @@ const hexPath = {
             if(buona){ buona.p.setAttribute("fill","#ffe6ea"); buona.p.setAttribute("stroke","#e0455a"); buona.p.setAttribute("stroke-width","4"); }
           }
           giusto ? api.correct() : api.wrong();
-          shieldInput(S, round, giusto ? 520 : 1200);
+          if(giusto) setTimeout(round, 400);        // indovinato: si prosegue subito
+          else shieldInput(S, round, 1000);         // sbagliato: un secondo per guardare
         });
       });
     }
@@ -2778,7 +2770,8 @@ const missingSign = {
               }
             }
             ok ? api.correct() : api.wrong();
-            setTimeout(round, ok ? 450 : 1300);
+            if(ok) setTimeout(round, 400);
+            else shieldInput(S, round, 1000);      // input bloccato mentre guardi la correzione
           }
         };
         grid.append(b);
@@ -2862,7 +2855,7 @@ const numberPlate = {
             locked = true;
             chips.filter(x=>!x.removed).forEach(x=>x.elm.classList.add("flash-ok"));
             api.correct();
-            setTimeout(round, 550);
+            setTimeout(round, 400);
           }else if(r<target){
             locked = true;
             chips.forEach(x=>{
@@ -2874,7 +2867,7 @@ const numberPlate = {
               }
             });
             api.wrong();
-            shieldInput(S, round, 1400);   // tocca per saltare l'attesa
+            shieldInput(S, round, 1000);
           }
         };
       });
@@ -3032,8 +3025,8 @@ const shuffleFind = {
               if(right) right.elm.classList.add("flash-fix");   // correzione in ROSSO
             }
             ok ? api.correct() : api.wrong();
-            if(ok) later(round, 750);
-            else shieldInput(S, round, 1400);   // tocca per saltare l'attesa
+            if(ok) later(round, 400);
+            else shieldInput(S, round, 1000);
           };
         });
       };
@@ -3109,7 +3102,7 @@ const shapeOrder = {
               if(idx===len){
                 locked=true;
                 api.correct(0.5);            // l'altro 50% (con la serie) al completamento
-                timeouts.push(setTimeout(round,500));
+                timeouts.push(setTimeout(round,400));
               }
             }else{
               locked=true;
@@ -3119,7 +3112,7 @@ const shapeOrder = {
               const okBtn = [...grid.children].find(x=>x.textContent===seq[idx]);
               if(okBtn) okBtn.classList.add("flash-fix");
               api.wrong();
-              shieldInput(S, round, 700);   // tocca per saltare l'attesa
+              shieldInput(S, round, 1000);
             }
           };
         });
@@ -3279,7 +3272,7 @@ const actionSequence = {
           api.wrong(true);
           seq = [];              // si ricomincia da capo: sequenza NUOVA e punti da 10
           replayFull = true;
-          shieldInput(S, round, 1300);
+          shieldInput(S, round, 1000);
         }
       };
       pads.forEach((b,pi)=> b.addEventListener("click", ()=>tocca(pi)));
@@ -3352,12 +3345,12 @@ const memoryGrid = {
             b.textContent = "\u2b50"; b.classList.add("good"); SFX.pop();
             api.partial(shares[found]);      // 50% del valore, una quota per stella (senza serie)
             found++;
-            if(found===nItems){ locked = true; api.correct(0.5); later(round,650); }
+            if(found===nItems){ locked = true; api.correct(0.5); later(round,400); }
           }else{
             locked = true;
             b.textContent = "\u2716"; b.classList.add("bad");
             btns.forEach((x,j)=>{ if(spots.has(j) && !x.classList.contains("good")){ x.textContent = "\u2b50"; x.classList.add("fix"); } });   // correzione in ROSSO
-            api.wrong(); shieldInput(S, round, 1100);
+            api.wrong(); shieldInput(S, round, 1000);
           }
         };
       });
@@ -3426,7 +3419,8 @@ const oddOneOut = {
           btn.classList.add(ok ? "good" : "bad");
           if(!ok) grid.children[oddIdx].classList.add("fix");   // correzione in ROSSO
           ok ? api.correct() : api.wrong();
-          setTimeout(round, ok ? 380 : 850);
+          if(ok) setTimeout(round, 400);
+          else shieldInput(S, round, 1000);        // input bloccato mentre guardi la correzione
         };
         grid.append(btn);
       }
@@ -3519,7 +3513,7 @@ const symbolSudoku = {
             if(cur===order.length){
               locked = true;
               api.correct(holes>1 ? 0.5 : 1);           // l'altro 50% (con la serie) al completamento
-              setTimeout(round,600);
+              setTimeout(round,400);
             }
             else mark();
           }else{
@@ -3528,7 +3522,7 @@ const symbolSudoku = {
             btns[i].textContent = syms[g[r][c]];
             const okBtn = [...opts.children].find(x=>x.textContent===syms[g[r][c]]);
             if(okBtn) okBtn.classList.add("flash-fix");   // correzione in ROSSO
-            api.wrong(); shieldInput(S, round, 1300);
+            api.wrong(); shieldInput(S, round, 1000);
           }
         };
         opts.append(b);
