@@ -19,6 +19,15 @@
   html{-webkit-text-size-adjust:100%;}
   html,body{margin:0;padding:0;}
   html,body{height:100%;}
+  /* NIENTE selezione del testo e niente menu da pressione prolungata: su mobile
+     trascinare un dito selezionava le scritte e mandava all'aria il tocco dopo. */
+  *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+    -webkit-tap-highlight-color:transparent;}
+  /* le scritte non intercettano i tocchi: passano a cio' che sta sotto (o a nulla),
+     cosi' non capita piu' che un clic "non funzioni" perche' e' finito su un testo */
+  .question, .bignum, .arrowseq, .seqrow, .title, .subtitle, .recordline,
+  .braintype, .brainmoji, .feedback, .stagechips, .hud .cat, .hud .score{
+    pointer-events:none;}
   body{
     font-family:"Nunito","Segoe UI",system-ui,sans-serif;
     background:radial-gradient(1200px 800px at 50% -10%, var(--bg1), var(--bg0));
@@ -742,12 +751,73 @@ const uniqOptions = (correct, gen, count=4) => {
    Su mobile l'audio si può avviare solo dopo un gesto: lo sblocchiamo
    al primo tocco/click ovunque nella pagina. ---------- */
 const SFX = (()=>{
-  let ctx = null, muted = false, noiseBuf = null;
+  let ctx = null, muted = false, noiseBuf = null, bus = null, voci = 0;
+  /* CATENA DI USCITA: ogni suono passa da un bus comune con un limitatore.
+     Serve perche' piu' note contemporanee si sommano e possono superare il fondo
+     scala, producendo distorsione. Il limitatore appiattisce i picchi, e il
+     margine sul bus evita che entri in azione troppo spesso. */
+  const outBus = (c)=>{
+    if(!bus){
+      bus = c.createGain();
+      bus.gain.value = 1.35;                       // volume pieno: ai picchi pensa il limitatore
+      const lim = c.createDynamicsCompressor();
+      lim.threshold.setValueAtTime(-4, c.currentTime);
+      lim.knee.setValueAtTime(0, c.currentTime);
+      lim.ratio.setValueAtTime(20, c.currentTime);
+      lim.attack.setValueAtTime(0.002, c.currentTime);
+      lim.release.setValueAtTime(0.12, c.currentTime);
+      bus.connect(lim); lim.connect(c.destination);
+    }
+    return bus;
+  };
+  /* piu' suoni sono gia' in corso, piu' ogni nuovo suono entra piano: cosi' il
+     volume complessivo resta stabile invece di accumularsi */
+  const scala = ()=> 1/Math.sqrt(1+voci*0.35);
+  /* Registro delle voci in corso. Serve a spegnerle con una DISSOLVENZA dal valore
+     in cui si trovano fino a zero, invece di troncarle di netto: un taglio secco a
+     meta' onda produce lo schiocco che si sente cambiando schermata o azzerando. */
+  const attive = new Set();
+  function spegni(v, ms){
+    try{
+      const c = v.c, t = c.currentTime, g = v.g;
+      if(t < v.t0){                             // non ancora partito: si azzera e basta
+        g.gain.cancelScheduledValues(0);
+        g.gain.setValueAtTime(0, 0);
+        try{ v.src.stop(t); }catch(e){}
+        attive.delete(v); return;
+      }
+      /* si TIENE il valore che l'inviluppo ha in questo istante e da li' si scende
+         a zero interpolando: nessun salto, quindi nessuno schiocco */
+      if(g.gain.cancelAndHoldAtTime) g.gain.cancelAndHoldAtTime(t);
+      else { const ora = g.gain.value; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(ora, t); }
+      g.gain.linearRampToValueAtTime(0, t+ms);
+      try{ v.src.stop(t+ms+0.005); }catch(e){}
+    }catch(e){}
+    attive.delete(v);
+  }
+  function spegniTutto(ms){
+    ms = ms || 0.05;
+    [...attive].forEach(v=>spegni(v, ms));
+  }
+  /* Un suono che riparte mentre il precedente della STESSA voce sta ancora suonando
+     non lo tronca: lo dissolve dal punto in cui si trova fino a zero. Cosi' toccando
+     in fretta (bolle, note) le code non si accavallano e non si sente lo strappo. */
+  const perVoce = new Map();
+  function liberaVoce(nome, ms){
+    const vecchie = perVoce.get(nome);
+    if(vecchie) vecchie.forEach(v=>{ if(attive.has(v)) spegni(v, ms||0.025); });
+    perVoce.set(nome, []);
+  }
+  function registra(nome, v){
+    if(!nome) return;
+    if(!perVoce.has(nome)) perVoce.set(nome, []);
+    perVoce.get(nome).push(v);
+  }
   const ensure = ()=>{
     try{
       if(!ctx){
         const AC = window.AudioContext || window.webkitAudioContext;
-        if(AC) ctx = new AC();
+        if(AC){ ctx = new AC(); bus = null; }
       }
       if(ctx && ctx.state==="suspended") ctx.resume();
     }catch(e){ ctx = null; }
@@ -784,8 +854,11 @@ const SFX = (()=>{
       o.type = opt.type||"sine";
       o.frequency.setValueAtTime(freq, t);
       if(opt.slideTo) o.frequency.exponentialRampToValueAtTime(opt.slideTo, t+dur);
-      envelope(g, t, dur, opt.vol||0.12);
-      o.connect(g); g.connect(c.destination);
+      envelope(g, t, dur, (opt.vol||0.12) * scala());
+      o.connect(g); g.connect(outBus(c));
+      const v = {g, src:o, c, t0:t};
+      voci++; attive.add(v); registra(opt.voce, v);
+      o.onended = ()=>{ voci = Math.max(0, voci-1); attive.delete(v); };
       o.start(t); o.stop(t+dur+0.01);   // si ferma quando il volume e' gia' a zero
     }catch(e){}
   }
@@ -799,40 +872,48 @@ const SFX = (()=>{
       f.frequency.setValueAtTime(opt.from||800, t);
       f.frequency.exponentialRampToValueAtTime(Math.max(40,opt.to||300), t+dur);
       const g = c.createGain();
-      envelope(g, t, dur, opt.vol||0.08);
-      src.connect(f); f.connect(g); g.connect(c.destination);
+      envelope(g, t, dur, (opt.vol||0.08) * scala());
+      src.connect(f); f.connect(g); g.connect(outBus(c));
+      const v = {g, src, c, t0:t};
+      voci++; attive.add(v); registra(opt.voce, v);
+      src.onended = ()=>{ voci = Math.max(0, voci-1); attive.delete(v); };
       src.start(t); src.stop(t+dur+0.01);   // si ferma quando il volume e' gia' a zero
     }catch(e){}
   }
   return {
     get muted(){ return muted; },
-    toggle(){ muted = !muted; return muted; },
-    click(){ tone(620,0.05,{vol:0.045,slideTo:340}); },
+    toggle(){ muted = !muted; if(muted) spegniTutto(0.04); return muted; },
+    stop(ms){ spegniTutto(ms); },
+    click(){ liberaVoce("click"); tone(620,0.05,{vol:0.045,slideTo:340,voce:"click"}); },
     ok(){
-      tone(523,0.15,{type:"triangle",vol:0.11});
-      tone(659,0.17,{vol:0.09,when:0.02});
-      tone(1319,0.11,{vol:0.045,when:0.05});
+      liberaVoce("ok");
+      tone(523,0.15,{type:"triangle",vol:0.11,voce:"ok"});
+      tone(659,0.17,{vol:0.09,when:0.02,voce:"ok"});
+      tone(1319,0.11,{vol:0.045,when:0.05,voce:"ok"});
     },
     no(){
-      tone(185,0.26,{type:"sawtooth",vol:0.06,slideTo:110});
-      noise(0.18,{vol:0.045,from:420,to:120});
+      liberaVoce("no");
+      tone(185,0.26,{type:"sawtooth",vol:0.06,slideTo:110,voce:"no"});
+      noise(0.18,{vol:0.045,from:420,to:120,voce:"no"});
     },
     lvlup(){
       [523,659,784,1047,1319].forEach((f,i)=>tone(f,0.24,{type:"triangle",vol:Math.max(0.04,0.1-i*0.01),when:0.12+i*0.07}));
     },
-    flip(){ noise(0.16,{vol:0.06,from:500,to:2400,q:2}); },
+    flip(){ liberaVoce("flip"); noise(0.16,{vol:0.06,from:500,to:2400,q:2,voce:"flip"}); },
     pop(){
-      tone(360,0.09,{vol:0.1,slideTo:920});
-      noise(0.05,{vol:0.04,from:2000,to:3200,q:3,when:0.012});
+      liberaVoce("pop");
+      tone(360,0.09,{vol:0.1,slideTo:920,voce:"pop"});
+      noise(0.05,{vol:0.04,from:2000,to:3200,q:3,when:0.012,voce:"pop"});
     },
     pad(i){
       /* circolo delle quinte: FA DO SOL RE LA MI SI, tenute nella stessa ottava
          cosi' l'orecchio le distingue senza salire troppo di registro */
       const f = [349.23, 523.25, 392.00, 587.33, 440.00, 659.25, 493.88][i] || 440;
-      tone(f,0.34,{vol:0.13});
-      tone(f*2,0.22,{type:"triangle",vol:0.04,when:0.012});
+      liberaVoce("pad", 0.03);
+      tone(f,0.34,{vol:0.13,voce:"pad"});
+      tone(f*2,0.22,{type:"triangle",vol:0.04,when:0.012,voce:"pad"});
     },
-    tick(){ noise(0.035,{vol:0.055,from:2600,to:2000,q:6}); },
+    tick(){ liberaVoce("tick"); noise(0.035,{vol:0.055,from:2600,to:2000,q:6,voce:"tick"}); },
     fanfare(){
       const seq = [[523,659,784],[587,740,880],[659,831,988],[784,988,1175]];
       seq.forEach((ch,i)=>ch.forEach(f=>tone(f,0.32,{type:"triangle",vol:0.06,when:i*0.18})));
@@ -1096,6 +1177,9 @@ let timerInt = null;
 let stageFitCleanup = null;   // smonta observer/listener dell'auto-fit dell'area di gioco
 
 function clearStage(){
+  /* NIENTE spegnimento qui: il suono del pulsante appena premuto e' programmato
+     pochi millesimi nel futuro, e verrebbe zittito prima ancora di partire.
+     I suoni del gioco durano al massimo un secondo e mezzo e finiscono da soli. */
   if(currentCleanup){ try{currentCleanup();}catch(e){} currentCleanup=null; }
   if(stageFitCleanup){ try{stageFitCleanup();}catch(e){} stageFitCleanup=null; }
   if(timerInt){ clearInterval(timerInt); timerInt=null; }
@@ -1104,7 +1188,25 @@ function clearStage(){
 
 /* blocco input: velo trasparente sull'area di gioco durante la rivelazione
    della risposta; sparisce da solo quando il round nuovo svuota l'area */
-function shieldInput(S){ S.append(el("div","inputshield")); }
+/* Velo sulla rivelazione della risposta. NON blocca e basta: toccandolo si salta
+   l'attesa e parte subito il round successivo. Cosi' l'unico clic che "non funziona"
+   e' quello che ripeterebbe una risposta gia' data, e chi vuole correre puo' farlo. */
+function shieldInput(S, avanti, ritardo){
+  const v = el("div","inputshield");
+  let fatto = false;
+  const vai = ()=>{
+    if(fatto) return; fatto = true;
+    clearTimeout(id);
+    if(typeof avanti === "function") avanti();
+  };
+  const id = setTimeout(vai, ritardo || 1200);
+  if(typeof avanti === "function"){
+    v.addEventListener("pointerdown", e=>{ e.preventDefault(); e.stopPropagation(); vai(); });
+    v.style.cursor = "pointer";
+  }
+  S.append(v);
+  return vai;
+}
 
 /* dimensiona le bolle sulla cella reale (+ scostamento casuale, mai a contatto) */
 function fitBubbles(field){
@@ -1810,7 +1912,11 @@ function askOptions(stage, questionHTML, boardNode, options, correct, api, next,
         if(cb) cb.b.classList.add("flash-fix");   // la CORREZIONE si mostra in rosso
       }
       ok ? api.correct() : api.wrong();
-      setTimeout(next, ok?350:1000);
+      /* se hai indovinato si va avanti da soli; se hai sbagliato compare la
+         correzione, e toccando lo schermo si salta subito al round successivo
+         invece di dover aspettare */
+      if(ok) setTimeout(next, 350);
+      else shieldInput(stage, next, 1000);
     };
     grid.append(b);
   });
@@ -2065,8 +2171,7 @@ const asteroids = {
             a.style.background="radial-gradient(circle at 32% 30%, #ff9a90, #c04a40 65%, #7a2620)";
             const rightBub = [...field.querySelectorAll(".asteroid")].find(x=>+x.textContent===remaining[0]);
             if(rightBub) rightBub.style.outline = "4px solid var(--coral)";   // correzione in ROSSO
-            shieldInput(S);
-            setTimeout(wave, 1100);  // errore -> ti mostro la giusta, poi nuova ondata
+            shieldInput(S, wave, 1100);   // tocca la correzione per saltare l'attesa
           }
         };
         cell.append(a);
@@ -2388,8 +2493,7 @@ const hexPath = {
             if(buona){ buona.p.setAttribute("fill","#ffe6ea"); buona.p.setAttribute("stroke","#e0455a"); buona.p.setAttribute("stroke-width","4"); }
           }
           giusto ? api.correct() : api.wrong();
-          shieldInput(S);
-          setTimeout(round, giusto ? 520 : 1200);
+          shieldInput(S, round, giusto ? 520 : 1200);
         });
       });
     }
@@ -2717,11 +2821,14 @@ const numberPlate = {
       }
       if(!keep) keep = Array.from({length:keepCount},(_,i)=>i+1);
       const target = keep.reduce((a,b)=>a+b,0);
+      /* nessun gettone da togliere puo' valere quanto il BERSAGLIO: altrimenti si
+         vede il numero richiesto tra i gettoni e viene naturale toccarlo, cosa che
+         a volte porta pure alla soluzione giusta e sembra un errore del gioco */
       const toRemove = [];
       guard = 0;
       while(toRemove.length < del && guard++ < 300){
         const v = 1+rnd(Math.max(9, Math.floor(cap*0.7)));
-        if(!keep.includes(v) && !toRemove.includes(v)) toRemove.push(v);
+        if(v!==target && !keep.includes(v) && !toRemove.includes(v)) toRemove.push(v);
       }
       const nums = shuffle(keep.concat(toRemove));
       const sig = nums.slice().sort((a,b)=>a-b).join(",")+"|"+target;   // MAI due piatti identici di fila
@@ -2767,8 +2874,7 @@ const numberPlate = {
               }
             });
             api.wrong();
-            shieldInput(S);           // blocco input durante la rivelazione
-            setTimeout(round, 1400);
+            shieldInput(S, round, 1400);   // tocca per saltare l'attesa
           }
         };
       });
@@ -2926,8 +3032,8 @@ const shuffleFind = {
               if(right) right.elm.classList.add("flash-fix");   // correzione in ROSSO
             }
             ok ? api.correct() : api.wrong();
-            if(!ok) shieldInput(S);      // blocco input durante la rivelazione
-            later(round, ok ? 750 : 1400);
+            if(ok) later(round, 750);
+            else shieldInput(S, round, 1400);   // tocca per saltare l'attesa
           };
         });
       };
@@ -3013,8 +3119,7 @@ const shapeOrder = {
               const okBtn = [...grid.children].find(x=>x.textContent===seq[idx]);
               if(okBtn) okBtn.classList.add("flash-fix");
               api.wrong();
-              shieldInput(S);                // blocco input durante la rivelazione
-              timeouts.push(setTimeout(round,700));
+              shieldInput(S, round, 700);   // tocca per saltare l'attesa
             }
           };
         });
@@ -3174,8 +3279,7 @@ const actionSequence = {
           api.wrong(true);
           seq = [];              // si ricomincia da capo: sequenza NUOVA e punti da 10
           replayFull = true;
-          shieldInput(S);
-          later(round,1300);
+          shieldInput(S, round, 1300);
         }
       };
       pads.forEach((b,pi)=> b.addEventListener("click", ()=>tocca(pi)));
@@ -3253,7 +3357,7 @@ const memoryGrid = {
             locked = true;
             b.textContent = "\u2716"; b.classList.add("bad");
             btns.forEach((x,j)=>{ if(spots.has(j) && !x.classList.contains("good")){ x.textContent = "\u2b50"; x.classList.add("fix"); } });   // correzione in ROSSO
-            api.wrong(); shieldInput(S); later(round,1100);
+            api.wrong(); shieldInput(S, round, 1100);
           }
         };
       });
@@ -3424,7 +3528,7 @@ const symbolSudoku = {
             btns[i].textContent = syms[g[r][c]];
             const okBtn = [...opts.children].find(x=>x.textContent===syms[g[r][c]]);
             if(okBtn) okBtn.classList.add("flash-fix");   // correzione in ROSSO
-            api.wrong(); shieldInput(S); setTimeout(round,1300);
+            api.wrong(); shieldInput(S, round, 1300);
           }
         };
         opts.append(b);
