@@ -15,11 +15,7 @@
     --radius:18px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  /* niente gesti del browser (doppio tocco per ingrandire, trascinamenti): sono
-     loro a introdurre l'attesa che fa "mangiare" i tocchi rapidi */
-  html,body{touch-action:manipulation;}
-  button,.hexcell,.padwheel .pad,.cellbtn,.asteroid,.platechip,.shufflecard{
-    touch-action:manipulation;}
+  button{touch-action:manipulation;}
   html{-webkit-text-size-adjust:100%;}
   html,body{margin:0;padding:0;}
   html,body{height:100%;}
@@ -756,19 +752,27 @@ const uniqOptions = (correct, gen, count=4) => {
    al primo tocco/click ovunque nella pagina. ---------- */
 const SFX = (()=>{
   let ctx = null, muted = false, noiseBuf = null, bus = null, voci = 0;
-  /* CATENA DI USCITA: un solo guadagno comune, niente compressore.
-     Un compressore con rapporto alto e' un limitatore, e un limitatore DEFORMA
-     l'onda ogni volta che entra in azione: era lui la distorsione continua.
-     Qui invece i livelli dei singoli suoni sono gia' tarati bassi, e il riavvio
-     della stessa voce dissolve la precedente: senza accumulo non serve limitare. */
+  /* CATENA DI USCITA: ogni suono passa da un bus comune con un limitatore.
+     Serve perche' piu' note contemporanee si sommano e possono superare il fondo
+     scala, producendo distorsione. Il limitatore appiattisce i picchi, e il
+     margine sul bus evita che entri in azione troppo spesso. */
   const outBus = (c)=>{
     if(!bus){
       bus = c.createGain();
-      bus.gain.value = 0.9;
-      bus.connect(c.destination);
+      bus.gain.value = 1.35;                       // volume pieno: ai picchi pensa il limitatore
+      const lim = c.createDynamicsCompressor();
+      lim.threshold.setValueAtTime(-4, c.currentTime);
+      lim.knee.setValueAtTime(0, c.currentTime);
+      lim.ratio.setValueAtTime(20, c.currentTime);
+      lim.attack.setValueAtTime(0.002, c.currentTime);
+      lim.release.setValueAtTime(0.12, c.currentTime);
+      bus.connect(lim); lim.connect(c.destination);
     }
     return bus;
   };
+  /* piu' suoni sono gia' in corso, piu' ogni nuovo suono entra piano: cosi' il
+     volume complessivo resta stabile invece di accumularsi */
+  const scala = ()=> 1/Math.sqrt(1+voci*0.35);
   /* Registro delle voci in corso. Serve a spegnerle con una DISSOLVENZA dal valore
      in cui si trovano fino a zero, invece di troncarle di netto: un taglio secco a
      meta' onda produce lo schiocco che si sente cambiando schermata o azzerando. */
@@ -784,21 +788,31 @@ const SFX = (()=>{
       }
       /* si TIENE il valore che l'inviluppo ha in questo istante e da li' si scende
          a zero interpolando: nessun salto, quindi nessuno schiocco */
-      const t0 = t + 0.005;                    // stesso margine dei suoni nuovi
-      if(g.gain.cancelAndHoldAtTime) g.gain.cancelAndHoldAtTime(t0);
-      else { const ora = g.gain.value; g.gain.cancelScheduledValues(t0); g.gain.setValueAtTime(ora, t0); }
-      g.gain.linearRampToValueAtTime(0, t0+ms);
-      try{ v.src.stop(t0+ms+0.01); }catch(e){}
+      if(g.gain.cancelAndHoldAtTime) g.gain.cancelAndHoldAtTime(t);
+      else { const ora = g.gain.value; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(ora, t); }
+      g.gain.linearRampToValueAtTime(0, t+ms);
+      try{ v.src.stop(t+ms+0.005); }catch(e){}
     }catch(e){}
     attive.delete(v);
   }
-  function spegniTutto(ms, escludi){
+  function spegniTutto(ms){
     ms = ms || RAMPA;
-    [...attive].forEach(v=>{ if(!escludi || v.nome!==escludi) spegni(v, ms); });
+    [...attive].forEach(v=>spegni(v, ms));
   }
-  /* POLIFONIA PIENA: i suoni si sovrappongono e ognuno dura per intero.
-     Nessuno viene accorciato o rubato da quello successivo. */
-  function registra(nome, v){ v.nome = nome; }
+  /* Un suono che riparte mentre il precedente della STESSA voce sta ancora suonando
+     non lo tronca: lo dissolve dal punto in cui si trova fino a zero. Cosi' toccando
+     in fretta (bolle, note) le code non si accavallano e non si sente lo strappo. */
+  const perVoce = new Map();
+  function liberaVoce(nome, ms){
+    const vecchie = perVoce.get(nome);
+    if(vecchie) vecchie.forEach(v=>{ if(attive.has(v)) spegni(v, ms||RAMPA); });
+    perVoce.set(nome, []);
+  }
+  function registra(nome, v){
+    if(!nome) return;
+    if(!perVoce.has(nome)) perVoce.set(nome, []);
+    perVoce.get(nome).push(v);
+  }
   const ensure = ()=>{
     try{
       if(!ctx){
@@ -838,16 +852,12 @@ const SFX = (()=>{
     if(muted) return; const c = ensure(); if(!c) return;
     opt = opt||{};
     try{
-      /* MARGINE: i suoni si programmano 30 ms nel futuro. Con soli 5 ms, se il filo
-         principale e' occupato a disegnare, il thread audio arriva quando la rampa
-         d'attacco e' gia' passata: il volume salta da zero all'ampiezza e si sente
-         lo schiocco. 30 ms non si percepiscono come ritardo ma bastano sempre. */
-      const t = c.currentTime + 0.030 + (opt.when||0);
+      const t = c.currentTime + 0.005 + (opt.when||0);   // margine: l'attacco non viene mai saltato
       const o = c.createOscillator(), g = c.createGain();
       o.type = opt.type||"sine";
       o.frequency.setValueAtTime(freq, t);
       if(opt.slideTo) o.frequency.exponentialRampToValueAtTime(opt.slideTo, t+dur);
-      envelope(g, t, dur, opt.vol||0.12);
+      envelope(g, t, dur, (opt.vol||0.12) * scala());
       o.connect(g); g.connect(outBus(c));
       const v = {g, src:o, c, t0:t};
       voci++; attive.add(v); registra(opt.voce, v);
@@ -859,17 +869,13 @@ const SFX = (()=>{
     if(muted) return; const c = ensure(); if(!c) return;
     opt = opt||{};
     try{
-      /* MARGINE: i suoni si programmano 30 ms nel futuro. Con soli 5 ms, se il filo
-         principale e' occupato a disegnare, il thread audio arriva quando la rampa
-         d'attacco e' gia' passata: il volume salta da zero all'ampiezza e si sente
-         lo schiocco. 30 ms non si percepiscono come ritardo ma bastano sempre. */
-      const t = c.currentTime + 0.030 + (opt.when||0);
+      const t = c.currentTime + 0.005 + (opt.when||0);   // margine: l'attacco non viene mai saltato
       const src = c.createBufferSource(); src.buffer = getNoise(c); src.loop = true;
       const f = c.createBiquadFilter(); f.type = "bandpass"; f.Q.value = opt.q||1.2;
       f.frequency.setValueAtTime(opt.from||800, t);
       f.frequency.exponentialRampToValueAtTime(Math.max(40,opt.to||300), t+dur);
       const g = c.createGain();
-      envelope(g, t, dur, opt.vol||0.08);
+      envelope(g, t, dur, (opt.vol||0.08) * scala());
       src.connect(f); f.connect(g); g.connect(outBus(c));
       const v = {g, src, c, t0:t};
       voci++; attive.add(v); registra(opt.voce, v);
@@ -879,36 +885,38 @@ const SFX = (()=>{
   }
   return {
     get muted(){ return muted; },
-    wake(){ ensure(); },     // va chiamato da un gesto VERO: sblocca l'audio su iPhone
     toggle(){ muted = !muted; if(muted) spegniTutto(0.04); return muted; },
-    stop(ms, escludi){ spegniTutto(ms, escludi); },
-    click(){ tone(620,0.05,{vol:0.045,slideTo:340,voce:"click"}); },
+    stop(ms){ spegniTutto(ms); },
+    click(){ liberaVoce("click"); tone(620,0.05,{vol:0.045,slideTo:340,voce:"click"}); },
     ok(){
+      liberaVoce("ok");
       tone(523,0.15,{type:"triangle",vol:0.11,voce:"ok"});
       tone(659,0.17,{vol:0.09,when:0.02,voce:"ok"});
       tone(1319,0.11,{vol:0.045,when:0.05,voce:"ok"});
     },
     no(){
+      liberaVoce("no");
       tone(185,0.26,{type:"sawtooth",vol:0.06,slideTo:110,voce:"no"});
       noise(0.18,{vol:0.045,from:420,to:120,voce:"no"});
     },
     lvlup(){
       [523,659,784,1047,1319].forEach((f,i)=>tone(f,0.24,{type:"triangle",vol:Math.max(0.04,0.1-i*0.01),when:0.12+i*0.07}));
     },
-    flip(){ noise(0.16,{vol:0.06,from:500,to:2400,q:2,voce:"flip"}); },
+    flip(){ liberaVoce("flip"); noise(0.16,{vol:0.06,from:500,to:2400,q:2,voce:"flip"}); },
     pop(){
+      liberaVoce("pop");
       tone(360,0.09,{vol:0.1,slideTo:920,voce:"pop"});
       noise(0.05,{vol:0.04,from:2000,to:3200,q:3,when:0.012,voce:"pop"});
     },
     pad(i){
-      /* SCALA ascendente LA SI DO RE MI FA SOL (la minore naturale): girando in senso
-         orario si sale di grado, quindi la posizione sulla ruota corrisponde
-         all'altezza del suono e l'orecchio aiuta la memoria. */
-      const f = [440.00, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99][i] || 440;
+      /* circolo delle quinte: FA DO SOL RE LA MI SI, tenute nella stessa ottava
+         cosi' l'orecchio le distingue senza salire troppo di registro */
+      const f = [349.23, 523.25, 392.00, 587.33, 440.00, 659.25, 493.88][i] || 440;
+      liberaVoce("pad");
       tone(f,0.34,{vol:0.13,voce:"pad"});
       tone(f*2,0.22,{type:"triangle",vol:0.04,when:0.012,voce:"pad"});
     },
-    tick(){ noise(0.035,{vol:0.055,from:2600,to:2000,q:6,voce:"tick"}); },
+    tick(){ liberaVoce("tick"); noise(0.035,{vol:0.055,from:2600,to:2000,q:6,voce:"tick"}); },
     fanfare(){
       const seq = [[523,659,784],[587,740,880],[659,831,988],[784,988,1175]];
       seq.forEach((ch,i)=>ch.forEach(f=>tone(f,0.32,{type:"triangle",vol:0.06,when:i*0.18})));
@@ -917,19 +925,6 @@ const SFX = (()=>{
     }
   };
 })();
-/* TOCCO IMMEDIATO. Su schermo tattile il clic arriva solo quando sollevi il dito,
-   e se il dito scivola anche di poco il browser lo annulla: toccando in fretta si
-   perdono colpi. Rispondiamo quindi alla PRESSIONE e togliamo il clic di cortesia
-   che il browser genererebbe dopo, cosi' non si risponde mai due volte. */
-document.addEventListener("pointerdown", e=>{
-  if(e.pointerType === "mouse") return;              // col mouse resta tutto com'era
-  const el = e.target.closest("button:not([disabled]), .hexcell, .padwheel .pad");
-  if(!el) return;
-  SFX.wake();                    // questo E' un gesto utente: sblocca l'audio su iPhone
-  e.preventDefault();            // niente clic successivo generato dal browser
-  el.dispatchEvent(new MouseEvent("click", {bubbles:true, cancelable:true}));
-}, {capture:true, passive:false});
-
 // click leggero su tutti i pulsanti (tranne i pad musicali, che hanno le loro note)
 document.addEventListener("click", e=>{
   const b = e.target.closest("button");
@@ -985,7 +980,7 @@ const STR = {
     q_memwhere:"Memorizza le carte, poi tocca quando sei pronto", q_whereis:"Dov'\u00e8",
     q_seq:"Memorizza la sequenza, poi tocca la prima forma", q_repeat:"Ora ripetila in ordine!",
     q_watch:"Osserva la sequenza\u2026 ({0})", q_yourturn:"Tocca a te! Ripeti la sequenza ({0})",
-    notes:"LA,SI,DO,RE,MI,FA,SOL",
+    notes:"FA,DO,SOL,RE,LA,MI,SI",
     seq_grow:"La sequenza si allunga! Osserva\u2026 ({0})",
     q_gridmem:"Memorizza le \u2b50, poi tocca la prima", q_gridwhere:"Dove erano? Tocca le {0} caselle!",
     q_odd:"Tocca l'intruso!",
@@ -1045,7 +1040,7 @@ const STR = {
     q_memwhere:"Memorize the cards, then tap when ready", q_whereis:"Where is",
     q_seq:"Memorize the sequence, then tap the first shape", q_repeat:"Now repeat it in order!",
     q_watch:"Watch the sequence\u2026 ({0})", q_yourturn:"Your turn! Repeat the sequence ({0})",
-    notes:"A,B,C,D,E,F,G",
+    notes:"F,C,G,D,A,E,B",
     seq_grow:"The sequence grows! Watch\u2026 ({0})",
     q_gridmem:"Memorize the \u2b50, then tap the first one", q_gridwhere:"Where were they? Tap the {0} cells!",
     q_odd:"Tap the odd one out!",
@@ -1181,16 +1176,13 @@ function newState(mode){
    FRAMEWORK
    ========================================================= */
 let currentCleanup = null;
-let stageAttivo = false;   // vero mentre si sta giocando: serve a spegnere i suoni all'uscita
 let timerInt = null;
 let stageFitCleanup = null;   // smonta observer/listener dell'auto-fit dell'area di gioco
 
 function clearStage(){
-  /* I suoni dei MENU proseguono liberamente tra una schermata e l'altra.
-     Quelli di un GIOCO invece si spengono quando il gioco finisce, in qualunque
-     modo lo si lasci: tempo scaduto, tasto ricomincia, uscita. Scendono a zero
-     con la stessa rampa di 10 ms, cosi' non vengono mai troncati. */
-  if(stageAttivo){ SFX.stop(0.010); stageAttivo = false; }
+  /* NIENTE spegnimento qui: il suono del pulsante appena premuto e' programmato
+     pochi millesimi nel futuro, e verrebbe zittito prima ancora di partire.
+     I suoni del gioco durano al massimo un secondo e mezzo e finiscono da soli. */
   if(currentCleanup){ try{currentCleanup();}catch(e){} currentCleanup=null; }
   if(stageFitCleanup){ try{stageFitCleanup();}catch(e){} stageFitCleanup=null; }
   if(timerInt){ clearInterval(timerInt); timerInt=null; }
@@ -1208,20 +1200,6 @@ function clearStage(){
 function shieldInput(S, avanti, ritardo){
   S.append(el("div","inputshield"));
   if(typeof avanti === "function") setTimeout(avanti, ritardo || 1200);
-}
-
-/* Pausa dopo una risposta GIUSTA. Qui non c'e' niente da guardare, quindi il tocco
-   non va sprecato: chi tocca durante la pausa fa partire subito il round successivo.
-   Senza questo, giocando veloce i tocchi cadevano nel vuoto tra un round e l'altro. */
-function pauseInput(S, avanti, ritardo){
-  const v = el("div","inputshield");
-  let fatto = false;
-  const vai = ()=>{ if(fatto) return; fatto = true; clearTimeout(id); avanti(); };
-  const id = setTimeout(vai, ritardo || 400);
-  v.addEventListener("pointerdown", e=>{ e.preventDefault(); e.stopPropagation(); vai(); });
-  v.style.cursor = "pointer";
-  S.append(v);
-  return id;          // cosi' chi raccoglie i timeout puo' annullarlo a fine stadio
 }
 
 /* dimensiona le bolle sulla cella reale (+ scostamento casuale, mai a contatto) */
@@ -1438,7 +1416,6 @@ function topBar(withRestart){
 let lastGamePlayed = null;   // memoria anti-ripetizione del sorteggio
 function runStage(cat, game){
   clearStage();
-  stageAttivo = true;
   lastGamePlayed = game;
   let stageScore = 0;
   state.streak = 0;
@@ -1932,7 +1909,7 @@ function askOptions(stage, questionHTML, boardNode, options, correct, api, next,
       /* se hai indovinato si va avanti da soli; se hai sbagliato compare la
          correzione, e toccando lo schermo si salta subito al round successivo
          invece di dover aspettare */
-      if(ok) pauseInput(stage, next, 400);
+      if(ok) setTimeout(next, 400);
       else shieldInput(stage, next, 1000);
     };
     grid.append(b);
@@ -2180,7 +2157,7 @@ const asteroids = {
             if(remaining.length===0){
               locked = true;
               api.correct(0.5);                        // 50% al completamento: serie + casella avanti
-              pauseInput(S, wave, 400);
+              setTimeout(wave,400);
             }
           }else{
             locked = true;    // blocco input fino alla nuova ondata
@@ -2510,7 +2487,7 @@ const hexPath = {
             if(buona){ buona.p.setAttribute("fill","#ffe6ea"); buona.p.setAttribute("stroke","#e0455a"); buona.p.setAttribute("stroke-width","4"); }
           }
           giusto ? api.correct() : api.wrong();
-          if(giusto) pauseInput(S, round, 400);        // indovinato: si prosegue subito
+          if(giusto) setTimeout(round, 400);        // indovinato: si prosegue subito
           else shieldInput(S, round, 1000);         // sbagliato: un secondo per guardare
         });
       });
@@ -2796,7 +2773,7 @@ const missingSign = {
               }
             }
             ok ? api.correct() : api.wrong();
-            if(ok) pauseInput(S, round, 400);
+            if(ok) setTimeout(round, 400);
             else shieldInput(S, round, 1000);      // input bloccato mentre guardi la correzione
           }
         };
@@ -2881,7 +2858,7 @@ const numberPlate = {
             locked = true;
             chips.filter(x=>!x.removed).forEach(x=>x.elm.classList.add("flash-ok"));
             api.correct();
-            pauseInput(S, round, 400);
+            setTimeout(round, 400);
           }else if(r<target){
             locked = true;
             chips.forEach(x=>{
@@ -3051,7 +3028,7 @@ const shuffleFind = {
               if(right) right.elm.classList.add("flash-fix");   // correzione in ROSSO
             }
             ok ? api.correct() : api.wrong();
-            if(ok) pauseInput(S, round, 400);
+            if(ok) later(round, 400);
             else shieldInput(S, round, 1000);
           };
         });
@@ -3128,7 +3105,7 @@ const shapeOrder = {
               if(idx===len){
                 locked=true;
                 api.correct(0.5);            // l'altro 50% (con la serie) al completamento
-                timeouts.push(pauseInput(S, round, 400));
+                timeouts.push(setTimeout(round,400));
               }
             }else{
               locked=true;
@@ -3288,7 +3265,7 @@ const actionSequence = {
             locked = true; armed = false;
             api.valueCorrect(roundValue);      // premio di completamento (con la serie)
             replayFull = false;                // giro dopo: si aggiunge un passo
-            pauseInput(S, round, 400);
+            later(round,400);
           }
         }else{
           locked = true; armed = false;
@@ -3371,7 +3348,7 @@ const memoryGrid = {
             b.textContent = "\u2b50"; b.classList.add("good"); SFX.pop();
             api.partial(shares[found]);      // 50% del valore, una quota per stella (senza serie)
             found++;
-            if(found===nItems){ locked = true; api.correct(0.5); pauseInput(S, round, 400); }
+            if(found===nItems){ locked = true; api.correct(0.5); later(round,400); }
           }else{
             locked = true;
             b.textContent = "\u2716"; b.classList.add("bad");
@@ -3445,7 +3422,7 @@ const oddOneOut = {
           btn.classList.add(ok ? "good" : "bad");
           if(!ok) grid.children[oddIdx].classList.add("fix");   // correzione in ROSSO
           ok ? api.correct() : api.wrong();
-          if(ok) pauseInput(S, round, 400);
+          if(ok) setTimeout(round, 400);
           else shieldInput(S, round, 1000);        // input bloccato mentre guardi la correzione
         };
         grid.append(btn);
@@ -3539,7 +3516,7 @@ const symbolSudoku = {
             if(cur===order.length){
               locked = true;
               api.correct(holes>1 ? 0.5 : 1);           // l'altro 50% (con la serie) al completamento
-              pauseInput(S, round, 400);
+              setTimeout(round,400);
             }
             else mark();
           }else{
