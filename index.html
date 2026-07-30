@@ -916,29 +916,34 @@ const SFX = (()=>{
     }
   };
 })();
-/* TOCCO IMMEDIATO, senza doppioni.
-   Il gioco reagisce alla PRESSIONE del dito, non al rilascio: si sente subito.
-   Il browser pero' genera comunque, al rilascio, un "click di cortesia" che
-   varrebbe come secondo tocco. Il preventDefault sul pointerdown NON lo sopprime
-   su mobile, quindi lo scartiamo noi: ogni click non nostro che arriva subito
-   dopo una pressione gestita viene fermato prima di raggiungere il gioco. */
+/* UNA SOLA REGOLA, identica per mouse e per dito.
+   - PULSANTI (menu, tasti in alto, risposte multiple): agiscono al RILASCIO, come
+     ogni pulsante normale, cosi' si puo' scivolare via senza attivarli.
+   - BERSAGLI dei giochi veloci, marchiati "rapido" (bolle, esagoni, gettoni, carte,
+     spicchi, celle di Memory Grid e di Odd One Out): agiscono alla PRESSIONE, e il
+     rilascio non deve produrre nulla.
+   Il click che il browser genera comunque al rilascio viene intercettato e buttato. */
 let clicDaScartare = false, scadenzaClic = null;
 document.addEventListener("pointerdown", e=>{
-  if(e.pointerType === "mouse") return;              // col mouse resta tutto com'era
-  const el = e.target.closest("button:not([disabled]), .hexcell, .padwheel .pad, .inputshield");
-  if(!el) return;
-  SFX.wake();                     // questo E' un gesto utente: sblocca l'audio su iPhone
-  clicDaScartare = true;          // ne arrivera' uno di cortesia al rilascio: lo aspettiamo
+  SFX.wake();                     // un gesto dell'utente: sblocca l'audio su iPhone
+  const el = e.target.closest(".rapido:not([disabled])");
+  if(!el) return;                 // pulsante normale: si aspetta il rilascio
+  clicDaScartare = true;
   clearTimeout(scadenzaClic);
-  scadenzaClic = setTimeout(()=>{ clicDaScartare = false; }, 900);
+  scadenzaClic = setTimeout(()=>{ clicDaScartare = false; }, 700);
   const ev = new MouseEvent("click", {bubbles:true, cancelable:true});
   ev.__nostro = true;             // marchio: cosi' non lo scartiamo per sbaglio
   el.dispatchEvent(ev);
 }, {capture:true, passive:true});
 
 document.addEventListener("click", e=>{
-  if(e.__nostro) return;                             // il nostro, generato alla pressione
-  if(clicDaScartare){                                // quello di cortesia del rilascio
+  if(e.__nostro) return;                    // il nostro, generato alla pressione
+  if(clicDaScartare){
+    /* Il click di cortesia del rilascio. NON si guarda su cosa e' finito: fra la
+       pressione e il rilascio la schermata puo' essere gia' cambiata, e proprio li'
+       stava il difetto - il click atterrava sul velo del round nuovo e lo faceva
+       avanzare. Fra pressione e rilascio non puo' esserci nessun altro click, quindi
+       scartare il primo che arriva e' sempre corretto. */
     clicDaScartare = false;
     e.preventDefault(); e.stopPropagation();
   }
@@ -2216,7 +2221,7 @@ const bubbles = {
         const cell = el("div","bubblecell");
         cell.style.gridColumn = (cellIds[i]%3)+1;
         cell.style.gridRow = Math.floor(cellIds[i]/3)+1;
-        const a = el("button","asteroid",String(n));
+        const a = el("button","asteroid rapido",String(n));
         // tinta per RANGO (dal piu' piccolo al piu' grande): 168 -> 298, arco equilibrato
         const rank = sortedNums.indexOf(n);
         const hue = howMany>1 ? 168 + 130*rank/(howMany-1) : 210;
@@ -2530,7 +2535,7 @@ const hexPath = {
            l'alveare, senza pulsanti sotto. Il gruppo tiene insieme cella e fiore,
            cosi' il tocco funziona su tutta la casella e non solo sul disegnino. */
         const g = document.createElementNS("http://www.w3.org/2000/svg","g");
-        if(isFiore) g.setAttribute("class","hexcell");
+        if(isFiore) g.setAttribute("class","hexcell rapido");
         const p=document.createElementNS("http://www.w3.org/2000/svg","polygon");
         p.setAttribute("points",pts.join(" "));
         p.setAttribute("fill","#2f2868");p.setAttribute("stroke","#1b1745");p.setAttribute("stroke-width","2");
@@ -2915,7 +2920,7 @@ const numberPlate = {
       const plate = el("div","plate");
       const chips = [];
       nums.forEach((v,i)=>{
-        const c = el("button","platechip",String(v));
+        const c = el("button","platechip rapido",String(v));
         const ang = (Math.PI*2/n)*i - Math.PI/2;
         c.style.left = (50 + Math.cos(ang)*32.5).toFixed(1)+"%";
         c.style.top  = (50 + Math.sin(ang)*32.5).toFixed(1)+"%";
@@ -3074,7 +3079,7 @@ const flipFind = {
         const row = el("div","fliprow");
         for(let k=0;k<cnt;k++){
           const e = items[ci++];
-          const c = el("button","shufflecard", e);
+          const c = el("button","shufflecard rapido", e);
           c.style.position = "static";
           c.disabled = true;
           row.append(c);
@@ -3279,7 +3284,7 @@ const musicSequence = {
         const P = (rad,a)=>[(rad*Math.cos(a)).toFixed(2),(rad*Math.sin(a)).toFixed(2)];
         const [x1,y1]=P(R,a0), [x2,y2]=P(R,a1), [x3,y3]=P(r0,a1), [x4,y4]=P(r0,a0);
         const g = document.createElementNS(NS,"g");
-        g.setAttribute("class","pad neutral");
+        g.setAttribute("class","pad neutral rapido");
         const path = document.createElementNS(NS,"path");
         path.setAttribute("d","M "+x1+" "+y1+" A "+R+" "+R+" 0 0 1 "+x2+" "+y2+
                               " L "+x3+" "+y3+" A "+r0+" "+r0+" 0 0 0 "+x4+" "+y4+" Z");
@@ -3399,7 +3404,7 @@ const memoryGrid = {
       grid.style.gridTemplateColumns = "repeat("+size+",1fr)";
       const btns = [];
       for(let i=0;i<cells;i++){
-        const b = el("button","cellbtn", spots.has(i) ? "⭐" : " ");
+        const b = el("button","cellbtn rapido", spots.has(i) ? "⭐" : " ");
         b.disabled = true; btns.push(b); grid.append(b);
       }
       S.append(grid);
@@ -3494,7 +3499,7 @@ const oddOneOut = {
       grid.style.gridTemplateColumns = "repeat("+size+",1fr)";
       let locked = false;
       for(let i=0;i<cells;i++){
-        const btn = el("button","cellbtn", i===oddIdx ? odd : base);
+        const btn = el("button","cellbtn rapido", i===oddIdx ? odd : base);
         btn.onclick = ()=>{
           if(locked) return; locked = true;
           const ok = i===oddIdx;
