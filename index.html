@@ -916,11 +916,33 @@ const SFX = (()=>{
     }
   };
 })();
-/* Su iPhone l'audio parte solo dopo un gesto dell'utente: qui lo sblocchiamo.
-   NIENTE ALTRO: nessun click fabbricato a mano. Un tocco genera gia' il suo click,
-   e crearne un secondo alla pressione faceva contare ogni tocco DUE volte, perche'
-   il preventDefault non sopprime il click di compatibilita' del tocco su mobile. */
-document.addEventListener("pointerdown", ()=>{ SFX.wake(); }, {passive:true});
+/* TOCCO IMMEDIATO, senza doppioni.
+   Il gioco reagisce alla PRESSIONE del dito, non al rilascio: si sente subito.
+   Il browser pero' genera comunque, al rilascio, un "click di cortesia" che
+   varrebbe come secondo tocco. Il preventDefault sul pointerdown NON lo sopprime
+   su mobile, quindi lo scartiamo noi: ogni click non nostro che arriva subito
+   dopo una pressione gestita viene fermato prima di raggiungere il gioco. */
+let clicDaScartare = false, scadenzaClic = null;
+document.addEventListener("pointerdown", e=>{
+  if(e.pointerType === "mouse") return;              // col mouse resta tutto com'era
+  const el = e.target.closest("button:not([disabled]), .hexcell, .padwheel .pad, .inputshield");
+  if(!el) return;
+  SFX.wake();                     // questo E' un gesto utente: sblocca l'audio su iPhone
+  clicDaScartare = true;          // ne arrivera' uno di cortesia al rilascio: lo aspettiamo
+  clearTimeout(scadenzaClic);
+  scadenzaClic = setTimeout(()=>{ clicDaScartare = false; }, 900);
+  const ev = new MouseEvent("click", {bubbles:true, cancelable:true});
+  ev.__nostro = true;             // marchio: cosi' non lo scartiamo per sbaglio
+  el.dispatchEvent(ev);
+}, {capture:true, passive:true});
+
+document.addEventListener("click", e=>{
+  if(e.__nostro) return;                             // il nostro, generato alla pressione
+  if(clicDaScartare){                                // quello di cortesia del rilascio
+    clicDaScartare = false;
+    e.preventDefault(); e.stopPropagation();
+  }
+}, true);
 
 // click leggero su tutti i pulsanti (tranne i pad musicali, che hanno le loro note)
 document.addEventListener("click", e=>{
@@ -3307,10 +3329,9 @@ const musicSequence = {
         idx = 0; locked = false; armed = true;
       };
       const tocca = (pi)=>{
-        /* Durante la riproduzione i tocchi vengono IGNORATI: qui non si puo'
-           rispondere prima di aver visto la nota nuova, e un tocco anticipato
-           (o rimasto in coda dal round precedente) diventerebbe una risposta
-           sbagliata. Si risponde solo quando il gioco dice "tocca a te". */
+        /* Si puo' partire quando si vuole: il primo tocco interrompe la
+           riproduzione e vale gia' come prima risposta. */
+        if(!armed) enterInput();
         if(!armed || locked) return;
         const b = pads[pi];
         if(pi===seq[idx]){
