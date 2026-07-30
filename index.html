@@ -715,25 +715,25 @@
    ========================================================================= */
 const CAL = {
   // --- Visiva ---
-  cubeCounter:     1.05,  // Cube Counter
-  jigsaw:          0.50,  // Missing Piece
-  asteroids:       1.00,  // Bubbles
-  oddOneOut:       0.50,  // Odd One Out
+  cubeCounter:      1.05,   // Cube Counter
+  missingPiece:     0.50,   // Missing Piece
+  bubbles:          1.00,   // Bubbles
+  oddOneOut:        0.50,   // Odd One Out
   // --- Logica ---
-  gears:           0.80,  // The Gears
-  hexPath:         1.5,   // Hexagon Path
-  balance:         0.75,  // The Balance
-  symbolSudoku:    1.45,  // Symbol Sudoku
+  gears:            0.80,   // The Gears
+  hexPath:          1.50,   // Hexagon Path
+  balance:          0.75,   // The Balance
+  symbolSudoku:     1.45,   // Symbol Sudoku
   // --- Calcolo ---
-  missingSign:     1.25,  // Missing Operators
-  numberPlate:     1.55,  // Number Plate
-  timeLapse:       1.60,  // Clock Difference
-  equationBalance: 1.25,  // Broken Equality
+  missingOperators: 1.25,   // Missing Operators
+  numberPlate:      1.55,   // Number Plate
+  clockDifference:  1.60,   // Clock Difference
+  brokenEquality:   1.25,   // Broken Equality
   // --- Memoria ---
-  shuffleFind:     1.00,  // Flip & Find
-  shapeOrder:      0.9,  // Shape Order
-  actionSequence:  0.80,  // Action Sequence
-  memoryGrid:      0.85,  // Memory Grid
+  flipFind:         1.00,   // Flip & Find
+  shapeOrder:       0.90,   // Shape Order
+  musicSequence:    0.85,   // Music Sequence
+  memoryGrid:       0.80,   // Memory Grid
 };
 
 const app = document.getElementById("app");
@@ -1792,7 +1792,7 @@ function showStageResult(score){
   s.append(topBar(true));
   const last = state.stages[state.stages.length-1];
   s.append(
-    el("div","brainmoji", score>=900 ? "🤩" : score>=500 ? "😃" : "🙂"),
+    el("div","brainmoji", score>=1500 ? "🤩" : score>=900 ? "😃" : "🙂"),
     el("h2","title",t("stage_done")),
     el("p","subtitle",last.cat.emoji+" "+last.cat.name+" — "+last.game),
     el("div","bignum","+"+score)
@@ -1808,17 +1808,17 @@ function brainType(cc){
      attorno a cui e' costruita la scala. La vetta e' a 6000, raggiungibile solo con
      un buon sorteggio e nessun errore; i gradini bassi sono ravvicinati, cosi'
      servono davvero a chi inizia invece di restare deserti. */
-  if(cc>=6000) return ["\ud83c\udf0c",t("bt_cosmic")];
-  if(cc>=4600) return ["\ud83e\udd16",t("bt_quantum")];
-  if(cc>=3600) return ["\ud83d\udc7d",t("bt_alien")];
-  if(cc>=2800) return ["\ud83d\udd2e",t("bt_genius")];
-  if(cc>=2150) return ["\ud83e\uddea",t("bt_sci")];
-  if(cc>=1600) return ["\ud83e\udd89",t("bt_owl")];
-  if(cc>=1150) return ["\ud83d\udc2c",t("bt_dolph")];
-  if(cc>=800)  return ["\ud83e\udd8a",t("bt_fox")];
-  if(cc>=520)  return ["\ud83d\udc36",t("bt_dog")];
-  if(cc>=300)  return ["\ud83d\udc39",t("bt_ham")];
-  if(cc>=120)  return ["\ud83d\udc1f",t("bt_fish")];
+  if(cc>=7000) return ["\ud83c\udf0c",t("bt_cosmic")];
+  if(cc>=5800) return ["\ud83e\udd16",t("bt_quantum")];
+  if(cc>=4700) return ["\ud83d\udc7d",t("bt_alien")];
+  if(cc>=3800) return ["\ud83d\udd2e",t("bt_genius")];
+  if(cc>=3000) return ["\ud83e\uddea",t("bt_sci")];
+  if(cc>=2300) return ["\ud83e\udd89",t("bt_owl")];
+  if(cc>=1700) return ["\ud83d\udc2c",t("bt_dolph")];
+  if(cc>=1200) return ["\ud83e\udd8a",t("bt_fox")];
+  if(cc>=800)  return ["\ud83d\udc36",t("bt_dog")];
+  if(cc>=450)  return ["\ud83d\udc39",t("bt_ham")];
+  if(cc>=180)  return ["\ud83d\udc1f",t("bt_fish")];
   return ["\ud83d\udc23",t("bt_empty")];
 }
 
@@ -1862,7 +1862,7 @@ function showFinal(){
   // il contatore sale attraversando tutti i tipi di cervello fino al tuo
   {
     const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const TIERS = [120,300,520,800,1150,1600,2150,2800,3600,4600,6000];   // = soglie di brainType
+    const TIERS = [180,450,800,1200,1700,2300,3000,3800,4700,5800,7000];   // = soglie di brainType
     const crossed = TIERS.filter(x=>x<=cc).length;
     const DUR = reduce ? 0 : Math.min(8000, 2200 + crossed*550);   // lenta: si vedono tutti i passaggi
     const t0 = performance.now();
@@ -2052,8 +2052,8 @@ const cubeCounter = {
 };
 
 /* ----- Jigsaw (WHTBB) ----- */
-const jigsaw = {
-  cal:CAL.jigsaw,
+const missingPiece = {
+  cal:CAL.missingPiece,
   get name(){return t("g_jigsaw_n");}, get desc(){return t("g_jigsaw_d");},
   start(api){
     const S = api.stage;
@@ -2135,8 +2135,8 @@ const jigsaw = {
 };
 
 /* ----- Asteroids (WHTBB) ----- */
-const asteroids = {
-  cal:CAL.asteroids,
+const bubbles = {
+  cal:CAL.bubbles,
   get name(){return t("g_aster_n");}, get desc(){return t("g_aster_d");},
   start(api){
     const S = api.stage;
@@ -2643,8 +2643,8 @@ const balance = {
    ========================================================= */
 
 /* ----- Missing Sign (WHTBB) ----- */
-const missingSign = {
-  cal:CAL.missingSign,
+const missingOperators = {
+  cal:CAL.missingOperators,
   get name(){return t("g_ops_n");}, get desc(){return t("g_ops_d");},
   start(api){
     const S = api.stage;
@@ -2927,8 +2927,8 @@ const numberPlate = {
 };
 
 /* ----- Time Lapse (Brain Age — il gioco degli orologi!) ----- */
-const timeLapse = {
-  cal:CAL.timeLapse,
+const clockDifference = {
+  cal:CAL.clockDifference,
   get name(){return t("g_clock_n");}, get desc(){return t("g_clock_d");},
   start(api){
     const S = api.stage;
@@ -3007,8 +3007,8 @@ const timeLapse = {
 /* ----- Card Pairs (WHTBB) ----- */
 /* ----- Mescola e Trova (nuovo!) ----- */
 /* ----- Gira e Trova ----- */
-const shuffleFind = {
-  cal:CAL.shuffleFind,
+const flipFind = {
+  cal:CAL.flipFind,
   get name(){return t("g_flip_n");}, get desc(){return t("g_flip_d");},
   start(api){
     const S = api.stage;
@@ -3189,8 +3189,8 @@ const shapeOrder = {
 };
 
 /* ----- Action Sequence (WHTBB, stile Simon) ----- */
-const actionSequence = {
-  cal:CAL.actionSequence,
+const musicSequence = {
+  cal:CAL.musicSequence,
   get name(){ return t("g_action_n"); }, get desc(){ return t("g_action_d"); },
   start(api){
     const S = api.stage;
@@ -3584,8 +3584,8 @@ const symbolSudoku = {
 };
 
 /* ----- Catena di Calcolo (nuovo!) ----- */
-const equationBalance = {
-  cal:CAL.equationBalance,
+const brokenEquality = {
+  cal:CAL.brokenEquality,
   get name(){return t("g_eq_n");}, get desc(){return t("g_eq_d");},
   start(api){
     const S = api.stage;
@@ -3685,10 +3685,10 @@ const equationBalance = {
    CATEGORIE (4 stadi — come nell'originale)
    ========================================================= */
 const CATEGORIES = [
-  {id:"vis", get name(){return t("cat_vis");},  emoji:"\ud83d\udc41\ufe0f", color:"#5db8ff", games:[cubeCounter, jigsaw, asteroids, oddOneOut]},
+  {id:"vis", get name(){return t("cat_vis");},  emoji:"\ud83d\udc41\ufe0f", color:"#5db8ff", games:[cubeCounter, missingPiece, bubbles, oddOneOut]},
   {id:"log", get name(){return t("cat_log");},  emoji:"\ud83e\udde9", color:"#b78bff", games:[gears, hexPath, balance, symbolSudoku]},
-  {id:"calc", get name(){return t("cat_calc");}, emoji:"\u2797", color:"#ffc94d", games:[missingSign, numberPlate, timeLapse, equationBalance]},
-  {id:"mem", get name(){return t("cat_mem");}, emoji:"\ud83d\udcad", color:"#3ee8b5", games:[shuffleFind, shapeOrder, actionSequence, memoryGrid]},
+  {id:"calc", get name(){return t("cat_calc");}, emoji:"\u2797", color:"#ffc94d", games:[missingOperators, numberPlate, clockDifference, brokenEquality]},
+  {id:"mem", get name(){return t("cat_mem");}, emoji:"\ud83d\udcad", color:"#3ee8b5", games:[flipFind, shapeOrder, musicSequence, memoryGrid]},
 ];
 
 /* Avvio robusto: parte anche se lo script viene eseguito prima/dopo il DOM,
