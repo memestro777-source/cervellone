@@ -717,7 +717,7 @@ const CAL = {
   // --- Visiva ---
   cubeCounter:      1.05,   // Cube Counter
   missingPiece:     0.50,   // Missing Piece
-  bubbles:          1.00,   // Bubbles
+  bubbles:          0.95,   // Bubbles
   oddOneOut:        0.50,   // Odd One Out
   // --- Logica ---
   gears:            0.80,   // The Gears
@@ -916,18 +916,11 @@ const SFX = (()=>{
     }
   };
 })();
-/* TOCCO IMMEDIATO. Su schermo tattile il clic arriva solo quando sollevi il dito,
-   e se il dito scivola anche di poco il browser lo annulla: toccando in fretta si
-   perdono colpi. Rispondiamo quindi alla PRESSIONE e togliamo il clic di cortesia
-   che il browser genererebbe dopo, cosi' non si risponde mai due volte. */
-document.addEventListener("pointerdown", e=>{
-  if(e.pointerType === "mouse") return;              // col mouse resta tutto com'era
-  const el = e.target.closest("button:not([disabled]), .hexcell, .padwheel .pad");
-  if(!el) return;
-  SFX.wake();                    // questo E' un gesto utente: sblocca l'audio su iPhone
-  e.preventDefault();            // niente clic successivo generato dal browser
-  el.dispatchEvent(new MouseEvent("click", {bubbles:true, cancelable:true}));
-}, {capture:true, passive:false});
+/* Su iPhone l'audio parte solo dopo un gesto dell'utente: qui lo sblocchiamo.
+   NIENTE ALTRO: nessun click fabbricato a mano. Un tocco genera gia' il suo click,
+   e crearne un secondo alla pressione faceva contare ogni tocco DUE volte, perche'
+   il preventDefault non sopprime il click di compatibilita' del tocco su mobile. */
+document.addEventListener("pointerdown", ()=>{ SFX.wake(); }, {passive:true});
 
 // click leggero su tutti i pulsanti (tranne i pad musicali, che hanno le loro note)
 document.addEventListener("click", e=>{
@@ -950,6 +943,7 @@ const STR = {
     title:"Cervellone!",
     intro_sub:"4 stadi, {0} secondi ciascuno.<br>Quanto \u00e8 grande il tuo cervello?",
     intro_share_msg:"\ud83e\udde0 Quanto \u00e8 grande il tuo cervello? Mettiti alla prova!",
+    rec_total:"Totale record", rec_potential:"Massimo potenziale",
     reset_rec:"\ud83d\uddd1 Azzera record", reset_sure:"\u26a0\ufe0f Sicuro?",
     reset_rec_t:"Cancella il record e le partite giocate",
     share_game:"\ud83d\udd17 Condividi il gioco", share_score:"\ud83d\udce4 Condividi il punteggio", copied:"\u2705 Copiato!", skip_hint2:"\ud83d\udc46 tocca per rispondere subito",
@@ -1010,6 +1004,7 @@ const STR = {
     title:"Big Brain!",
     intro_sub:"4 stages, {0} seconds each.<br>How big is your brain?",
     intro_share_msg:"\ud83e\udde0 How big is your brain? Test yourself!",
+    rec_total:"Total of all records", rec_potential:"Your max potential",
     reset_rec:"\ud83d\uddd1 Reset record", reset_sure:"\u26a0\ufe0f Sure?",
     reset_rec_t:"Clear your best score and games played",
     share_game:"\ud83d\udd17 Share the game", share_score:"\ud83d\udce4 Share your score", copied:"\u2705 Copied!", skip_hint2:"\ud83d\udc46 tap to answer right away",
@@ -1216,33 +1211,21 @@ function shieldInput(S, avanti, ritardo){
   if(typeof avanti === "function") attesePendenti.push(setTimeout(avanti, ritardo || 1200));
 }
 
-/* Su mobile un tocco genera PRIMA pointerdown e POI click. Se si reagisce al
-   pointerdown, il click successivo arriva quando il velo non c'e' piu' e finisce
-   sul round nuovo: un tocco solo diventa due. Questa funzione si mangia il click
-   che segue, cosi' il tocco vale una volta sola. */
-function ingoiaProssimoClic(){
-  /* si intercetta SOLO il click: pointerup arriva prima e toglierebbe l'ascolto
-     troppo presto, lasciando passare proprio il click che vogliamo bloccare */
-  const f = e => { e.preventDefault(); e.stopPropagation(); pulisci(); };
-  const pulisci = ()=> document.removeEventListener("click", f, true);
-  document.addEventListener("click", f, true);
-  setTimeout(pulisci, 700);
-}
-
 /* Pausa dopo una risposta GIUSTA. Qui non c'e' niente da guardare, quindi il tocco
-   non va sprecato: chi tocca durante la pausa fa partire subito il round successivo. */
+   non va sprecato: chi tocca durante la pausa fa partire subito il round successivo.
+   Si ascolta il CLICK, non il pointerdown: su mobile un tocco genera pointerdown e
+   poi click, e reagendo al primo il secondo sarebbe finito sul round nuovo. */
 function pauseInput(S, avanti, ritardo){
   const v = el("div","inputshield");
   let fatto = false;
-  const vai = (daTocco)=>{
+  const vai = ()=>{
     if(fatto) return; fatto = true;
     clearTimeout(id);
-    if(daTocco) ingoiaProssimoClic();
     avanti();
   };
-  const id = setTimeout(()=>vai(false), ritardo || 400);
+  const id = setTimeout(vai, ritardo || 400);
   attesePendenti.push(id);
-  v.addEventListener("pointerdown", e=>{ e.preventDefault(); e.stopPropagation(); vai(true); });
+  v.addEventListener("click", e=>{ e.preventDefault(); e.stopPropagation(); vai(); });
   v.style.cursor = "pointer";
   S.append(v);
   return id;          // cosi' chi raccoglie i timeout puo' annullarlo a fine stadio
@@ -1331,6 +1314,32 @@ function showSingleChoice(last){
   const s = el("div","screen");
   s.append(topBar(true));   // il tasto "azzera record" sta solo nel menu principale
   s.append(el("h2","title",t("single_title")));
+  /* Riepilogo dei record: il totale di tutti e sedici, e il "massimo potenziale",
+     cioe' quanto faresti in una sfida se ogni stadio pescasse il tuo gioco migliore
+     di quella categoria e tu ripetessi il record. E' il traguardo verso cui puntare. */
+  {
+    const gb = RECORDS.gb2 || {};
+    let totale = 0, potenziale = 0, quanti = 0;
+    CATEGORIES.forEach(cat=>{
+      let miglior = 0;
+      cat.games.forEach((g,gi)=>{
+        const v = gb[cat.id+"-"+gi] || 0;
+        if(v>0){ totale += v; quanti++; }
+        if(v > miglior) miglior = v;
+      });
+      potenziale += miglior;
+    });
+    if(quanti>0){
+      const riga = el("p","recordline",
+        "\ud83c\udfc6 "+t("rec_total")+": <b>"+totale+" cm\u00b3</b> ("+quanti+"/16)");
+      s.append(riga);
+      if(potenziale>0){
+        const bt = brainType(potenziale);
+        s.append(el("p","recordline",
+          "\ud83d\ude80 "+t("rec_potential")+": <b>"+potenziale+" cm\u00b3</b> \u00b7 "+bt[0]+" "+bt[1]));
+      }
+    }
+  }
   const box = el("div","singlebox");
   CATEGORIES.forEach(cat=>{
     const row = el("div","sgrow");
@@ -3298,8 +3307,10 @@ const musicSequence = {
         idx = 0; locked = false; armed = true;
       };
       const tocca = (pi)=>{
-        if(Date.now()-t0 < 100) return;
-        if(!armed) enterInput();          // il primo tocco vale gia' come "sono pronto"
+        /* Durante la riproduzione i tocchi vengono IGNORATI: qui non si puo'
+           rispondere prima di aver visto la nota nuova, e un tocco anticipato
+           (o rimasto in coda dal round precedente) diventerebbe una risposta
+           sbagliata. Si risponde solo quando il gioco dice "tocca a te". */
         if(!armed || locked) return;
         const b = pads[pi];
         if(pi===seq[idx]){
