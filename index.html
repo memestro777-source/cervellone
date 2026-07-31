@@ -945,7 +945,10 @@ document.addEventListener("click", e=>{
        avanzare. Fra pressione e rilascio non puo' esserci nessun altro click, quindi
        scartare il primo che arriva e' sempre corretto. */
     clicDaScartare = false;
-    e.preventDefault(); e.stopPropagation();
+    /* stopImmediatePropagation, non stopPropagation: il secondo blocca il click
+       verso gli altri ELEMENTI ma lascia lavorare gli altri ascoltatori su questo
+       stesso documento - fra cui quello del suono, che infatti si sentiva due volte. */
+    e.preventDefault(); e.stopImmediatePropagation();
   }
 }, true);
 
@@ -958,8 +961,16 @@ document.addEventListener("click", e=>{
 function soundBtn(){
   const b = el("button","iconbtn", SFX.muted ? "🔇" : "🔊");
   b.setAttribute("aria-label","audio");
+  b.dataset.suono = "1";            // marchio: si aggiorna anche col muto automatico
   b.onclick = ()=>{ b.textContent = SFX.toggle() ? "🔇" : "🔊"; };
   return b;
+}
+/* rimette l'icona giusta sui tasti audio a schermo: serve quando il muto viene
+   acceso o spento da solo (app in secondo piano), non da un tocco */
+function aggiornaTastiSuono(){
+  document.querySelectorAll("[data-suono]").forEach(b=>{
+    b.textContent = SFX.muted ? "🔇" : "🔊";
+  });
 }
 
 
@@ -1873,17 +1884,17 @@ function legendaryCelebration(){
     document.body.append(c);
     setTimeout(()=>c.remove(), 5200);
   }
-  // fanfara estesa
+  /* UNA sola fanfara: erano due a meno di un secondo di distanza e si sentiva
+     come un suono doppio. Il tocco finale resta la scaletta di salita. */
   SFX.fanfare();
-  setTimeout(()=>SFX.fanfare(), 950);
-  setTimeout(()=>SFX.lvlup(), 2000);
+  setTimeout(()=>SFX.lvlup(), 1100);
 }
 
 function showFinal(){
   clearStage();
   const cc = state.total;
   const [em, name] = brainType(cc);
-  const legendary = cc >= 2100;
+  const legendary = cc >= 5800;   // Cervello Quantistico: la festa torna a essere un'eccezione
   const s = el("div","screen");
   s.append(topBar(true));
   const emojiEl = el("div","brainmoji",brainType(0)[0]);
@@ -3746,6 +3757,21 @@ function setVH(){
    non solo dopo un cambio manuale (conta per la lettura vocale e per i preferiti) */
 document.documentElement.lang = LANG;
 document.title = t("title");
+
+/* Se l'app finisce in secondo piano (cambio scheda, telefonata, schermo spento)
+   l'audio va in muto e torna com'era al ritorno. Il tempo continua a scorrere:
+   e' una scelta, il cronometro misura il tempo reale. Se il muto era gia' acceso
+   di tua volonta', al ritorno resta acceso. */
+let mutoAutomatico = false;
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden){
+    if(!SFX.muted){ mutoAutomatico = true; SFX.toggle(); }
+  }else if(mutoAutomatico){
+    mutoAutomatico = false;
+    if(SFX.muted) SFX.toggle();
+  }
+  aggiornaTastiSuono();
+});
 
 setVH();
 window.addEventListener("resize", setVH);
