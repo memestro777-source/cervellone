@@ -12,19 +12,3 @@ The 16 Minigames
 🧩 Logic — The Gears · Hexagon Path · The Balance · Symbol Sudoku
 ➗ Math — Missing Operators · Number Plate · Clock Difference · Broken Equality
 💭 Memory — Flip & Find · Shape Order · Music Sequence · Memory Grid
-________________________________________
-Features
-Invisible adaptive difficulty. Two correct answers in a row step the level up, mistakes step it back down. Points are never taken away on an error, and the right answer is always revealed in red.
-No forced waiting in the memory games. Look at the cards, the shapes or the stars for as long as you like, then tap to start answering — the first tap already counts as your first answer.
-Balanced scoring. Every game has a multiplier tuned so that a strong player scores roughly the same in all 16, no matter which ones the challenge draws. A streak multiplier rewards consecutive correct answers, up to double points.
-Music Sequence is a wheel of seven notes following the circle of fifths — F, C, G, D, A, E, B. The sequence grows by one step every round; one mistake and you start over.
-Fixed layout. Header, timer and playing area keep the same size in every game and at every level, so nothing shifts or jumps while you play, and the page never scrolls.
-Bilingual. Italian and English, switchable at any time from the main menu.
-Records saved in your browser. Best challenge score, games played, and a personal best for each of the 16 minigames. A 🗑 button in the main menu clears them all, with confirmation.
-Share your result. Copies your brain size, brain type, which mode you played, and the score of each stage.
-Final animation counting up through every brain type, from 🐣 Hatching Brain to 🌌 Cosmic Mind.
-________________________________________
-Running It
-Open the HTML file in any modern browser. No server, no installation needed.
-To play it as an app on your phone, put it online (GitHub Pages works well) and use Add to Home Screen.
-
